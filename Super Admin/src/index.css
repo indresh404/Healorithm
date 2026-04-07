@@ -1,0 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  @apply font-sans antialiased text-slate-900;
+}
+
+/* html5-qrcode custom styling */
+#reader {
+  border: none !important;
+}
+
+#reader__scan_region {
+  background: #f8fafc;
+}
+
+#reader__dashboard_section_csr button {
+  @apply bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-blue-700 transition-all;
+}
+
+#reader__dashboard_section_csr select {
+  @apply bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm;
+}
+
+#reader__camera_selection {
+  @apply bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm mb-4;
+}

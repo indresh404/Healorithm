@@ -1,0 +1,5 @@
+{
+  "name": "Healorithm Admin Dashboard",
+  "description": "A modern healthcare admin dashboard for managing users, medical records, and health analytics with QR scanning capabilities.",
+  "requestFramePermissions": ["camera"]
+}
