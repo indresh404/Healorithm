@@ -1,0 +1,8 @@
+export const THRESHOLDS = {
+  BP_SYSTOLIC_MAX: 180,
+  BP_DIASTOLIC_MAX: 120,
+  SPO2_MIN: 90,
+  TEMP_MAX: 39.5,
+  HR_MAX: 120,
+  HR_MIN: 50,
+};
