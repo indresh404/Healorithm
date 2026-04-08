@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Patient, VitalParams } from '../constants/mockData';
 import { THRESHOLDS } from '../constants/thresholds';
 import { getUsers, getVitalsForPatients, recordVitals, type DbVital, type DbAIConsultation } from '../services/supabase.service';
+import { adminApi, PatientProfileResponse, PrioritizedPatient } from '@/services/adminApi';
 
 interface Worker {
   id: string;
@@ -38,6 +39,12 @@ interface AppState {
   syncQueue: SyncItem[];
   alerts: Alert[];
   lastSyncTime: Date | null;
+  // AI pipeline state
+  prioritizedPatients: PrioritizedPatient[];
+  isPrioritizing: boolean;
+  priorityError: string | null;
+  scannedPatient: PatientProfileResponse | null;
+  backendOnline: boolean;
   login: (worker: Worker) => void;
   logout: () => void;
   setCurrentPatient: (patientData: any) => void;
@@ -47,6 +54,10 @@ interface AppState {
   markSynced: (itemId: string) => void;
   simulateSync: () => Promise<void>;
   resolveAlert: (alertId: string) => void;
+  // AI pipeline actions
+  loadPrioritizedPatients: () => Promise<void>;
+  scanPatientQR: (qrCode: string) => Promise<PatientProfileResponse | null>;
+  checkBackend: () => Promise<void>;
 }
 
 const isHighRisk = (v: VitalParams) => {
@@ -66,9 +77,48 @@ export const useAppStore = create<AppState>((set, get) => ({
   syncQueue: [],
   alerts: [],
   lastSyncTime: null,
-  
+  // AI pipeline initial state
+  prioritizedPatients: [],
+  isPrioritizing: false,
+  priorityError: null,
+  scannedPatient: null,
+  backendOnline: false,
+
   login: (worker) => set({ isLoggedIn: true, currentWorker: worker }),
   logout: () => set({ isLoggedIn: false, currentWorker: null }),
+
+  checkBackend: async () => {
+    try {
+      const res = await adminApi.health();
+      const online = res?.status === 'healthy';
+      set({ backendOnline: online });
+      if (online) get().loadPrioritizedPatients();
+    } catch {
+      set({ backendOnline: false });
+    }
+  },
+
+  loadPrioritizedPatients: async () => {
+    const workerId = get().currentWorker?.id ?? 'w1';
+    set({ isPrioritizing: true, priorityError: null });
+    try {
+      const res = await adminApi.getPrioritizedList(workerId);
+      set({ prioritizedPatients: res.prioritized_list, isPrioritizing: false });
+    } catch (e: any) {
+      set({ priorityError: e.message ?? 'Failed to load priority list', isPrioritizing: false });
+    }
+  },
+
+  scanPatientQR: async (qrCode: string) => {
+    try {
+      const profile = await adminApi.scanPatient(qrCode);
+      set({ scannedPatient: profile });
+      return profile;
+    } catch {
+      set({ scannedPatient: null });
+      return null;
+    }
+  },
   
   setCurrentPatient: (patientData) => {
     // Transform patient data from QR scan into Patient format
@@ -185,6 +235,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       spo2: vitals.spo2,
       temperature: vitals.temp,
       recorded_at: vitals.date,
+      recorded_by: get().currentWorker?.id,
     });
 
     let alertCreated = false;
