@@ -8,7 +8,35 @@ import * as Haptics from 'expo-haptics';
 import { COLORS } from '../../constants/colors';
 import { QROverlay } from '../../components/scanner/QROverlay';
 import { useAppStore } from '../../store/useAppStore';
-import { getPatientByQRCode, getPatientByQRCodeFallback, type PatientFullData } from '../../services/supabase.service';
+import { getPatientByQRCode, getPatientByQRCodeFallback, getPatientByUserIdFallback, type PatientFullData } from '../../services/supabase.service';
+
+const extractQRCodeValue = (rawData: string) => {
+  const trimmedData = rawData.trim();
+  const directMatch = trimmedData.match(/\bQR_[A-Z0-9]+\b/i);
+  if (directMatch) {
+    return directMatch[0].toUpperCase();
+  }
+
+  return null;
+};
+
+const extractUserIdFromPayload = (rawData: string) => {
+  const trimmedData = rawData.trim();
+
+  const healorithmMatch = trimmedData.match(
+    /^healorithm:\/\/user\/([0-9a-f-]{36})(?:\?.*)?$/i
+  );
+  if (healorithmMatch) {
+    return healorithmMatch[1];
+  }
+
+  const uuidMatch = trimmedData.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i);
+  if (uuidMatch) {
+    return uuidMatch[0];
+  }
+
+  return null;
+};
 
 export default function ScanScreen() {
   const router = useRouter();
