@@ -1,16 +1,15 @@
 import { Tabs } from 'expo-router';
-import { View, TouchableOpacity, StyleSheet, Text, Platform } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { COLORS } from '../../constants/colors';
-import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabsLayout() {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  // Custom button for the center Scan tab
   const CustomTabBarButton = ({ children, onPress }: any) => {
     const scale = useSharedValue(1);
 
@@ -56,7 +55,11 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarStyle: [
           styles.tabBar,
-          { height: 75 + insets.bottom, paddingBottom: insets.bottom + 8 }
+          { 
+            height: 75 + insets.bottom, 
+            paddingBottom: insets.bottom + 8,
+            paddingHorizontal: 16,
+          }
         ],
         tabBarActiveTintColor: COLORS.PRIMARY_GREEN,
         tabBarInactiveTintColor: '#94A3B8',
@@ -64,18 +67,21 @@ export default function TabsLayout() {
         tabBarItemStyle: styles.tabBarItem,
       }}
     >
+      {/* Home Tab */}
       <Tabs.Screen
         name="dashboard"
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.tabIcon}>
-              <Ionicons name={focused ? 'grid' : 'grid-outline'} size={24} color={color} />
+              <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />
               {focused && <View style={styles.tabIndicator} />}
             </View>
           ),
         }}
       />
+
+      {/* Patients Tab */}
       <Tabs.Screen
         name="patients"
         options={{
@@ -88,12 +94,17 @@ export default function TabsLayout() {
           ),
         }}
       />
+
+      {/* Scan Tab - Center with custom button */}
       <Tabs.Screen
         name="scan"
         options={{
+          title: 'Scan',
           tabBarButton: (props) => <CustomTabBarButton {...props} />,
         }}
       />
+
+      {/* Alerts Tab */}
       <Tabs.Screen
         name="alerts"
         options={{
@@ -106,6 +117,8 @@ export default function TabsLayout() {
           ),
         }}
       />
+
+      {/* Profile Tab */}
       <Tabs.Screen
         name="profile"
         options={{
@@ -139,6 +152,7 @@ const styles = StyleSheet.create({
   },
   tabBarItem: {
     paddingTop: 8,
+    flex: 1,
   },
   tabBarLabel: {
     fontFamily: 'Poppins_600SemiBold',
@@ -165,6 +179,7 @@ const styles = StyleSheet.create({
     top: -28,
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
   },
   fab: {
     width: 64,
@@ -175,7 +190,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 10,
-    backgroundColor: COLORS.WHITE, // Required for shadow on Android
+    backgroundColor: COLORS.WHITE,
   },
   fabGradient: {
     width: '100%',
