@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Patient, VitalParams } from '../constants/mockData';
 import { THRESHOLDS } from '../constants/thresholds';
-import { getUsers, getVitalsForPatients, recordVitals } from '../services/supabase.service';
+import { getUsers, getVitalsForPatients, recordVitals, type DbVital, type DbAIConsultation } from '../services/supabase.service';
 
 interface Worker {
   id: string;
@@ -33,12 +33,14 @@ export interface Alert {
 interface AppState {
   isLoggedIn: boolean;
   currentWorker: Worker | null;
+  currentPatient: Patient | null;
   patients: Patient[];
   syncQueue: SyncItem[];
   alerts: Alert[];
   lastSyncTime: Date | null;
   login: (worker: Worker) => void;
   logout: () => void;
+  setCurrentPatient: (patientData: any) => void;
   loadPatientsFromDb: () => Promise<void>;
   updatePatientVitals: (patientId: string, vitals: Omit<VitalParams, 'id'>) => Promise<void>;
   addToSyncQueue: (item: Omit<SyncItem, 'id' | 'timestamp'>) => void;
@@ -47,9 +49,19 @@ interface AppState {
   resolveAlert: (alertId: string) => void;
 }
 
+const isHighRisk = (v: VitalParams) => {
+  const [sys, dia] = v.bp.split('/').map(Number);
+  if (sys > THRESHOLDS.BP_SYSTOLIC_MAX || dia > THRESHOLDS.BP_DIASTOLIC_MAX) return true;
+  if (v.spo2 < THRESHOLDS.SPO2_MIN) return true;
+  if (v.temp > THRESHOLDS.TEMP_MAX) return true;
+  if (v.hr > THRESHOLDS.HR_MAX || v.hr < THRESHOLDS.HR_MIN) return true;
+  return false;
+};
+
 export const useAppStore = create<AppState>((set, get) => ({
   isLoggedIn: false,
   currentWorker: null,
+  currentPatient: null,
   patients: [],
   syncQueue: [],
   alerts: [],
@@ -58,19 +70,57 @@ export const useAppStore = create<AppState>((set, get) => ({
   login: (worker) => set({ isLoggedIn: true, currentWorker: worker }),
   logout: () => set({ isLoggedIn: false, currentWorker: null }),
   
+  setCurrentPatient: (patientData) => {
+    // Transform patient data from QR scan into Patient format
+    const vitalsHistory: VitalParams[] = (patientData.vitals || []).map((v: DbVital) => {
+      const systolic = typeof v.systolic_bp === 'number' ? v.systolic_bp : 0;
+      const diastolic = typeof v.diastolic_bp === 'number' ? v.diastolic_bp : 0;
+      const bp = `${systolic}/${diastolic}`;
+      const entry: VitalParams = {
+        id: v.id,
+        date: v.recorded_at ?? v.created_at,
+        bp,
+        spo2: v.spo2 ?? 0,
+        temp: v.temperature ?? 0,
+        hr: v.heart_rate ?? 0,
+      };
+      entry.isHighRisk = isHighRisk(entry);
+      return entry;
+    });
+
+    const latestVital = vitalsHistory[0];
+    const latestAI = (patientData.aiConsultations || [])[0] as DbAIConsultation | undefined;
+    
+    let riskLevel: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
+    if (latestAI?.risk_level === 'HIGH') riskLevel = 'HIGH';
+    else if (latestAI?.risk_level === 'MEDIUM') riskLevel = 'MEDIUM';
+
+    const patient: Patient = {
+      id: patientData.id,
+      name: patientData.name,
+      age: patientData.age || 0,
+      gender: patientData.gender || 'Unknown',
+      village: 'Unknown',
+      conditions: [],
+      riskLevel,
+      riskScore: riskLevel === 'HIGH' ? 85 : riskLevel === 'MEDIUM' ? 50 : 20,
+      emergencyFlag: riskLevel === 'HIGH',
+      lastVisited: latestVital?.date ?? new Date().toISOString(),
+      overdue: false,
+      adherencePercentage: 0,
+      adherenceLog: ['none', 'none', 'none', 'none', 'none', 'none', 'none'],
+      vitalsHistory,
+      prescriptions: (patientData.prescriptions || []).map((p: any) => `${p.medication} ${p.dosage}`),
+      notes: latestAI?.summary || '',
+    };
+
+    set({ currentPatient: patient });
+  },
+  
   loadPatientsFromDb: async () => {
     const users = await getUsers();
     const vitals = await getVitalsForPatients(users.map(u => u.id));
     const vitalsByPatient = new Map<string, VitalParams[]>();
-
-    const isHighRisk = (v: VitalParams) => {
-      const [sys, dia] = v.bp.split('/').map(Number);
-      if (sys > THRESHOLDS.BP_SYSTOLIC_MAX || dia > THRESHOLDS.BP_DIASTOLIC_MAX) return true;
-      if (v.spo2 < THRESHOLDS.SPO2_MIN) return true;
-      if (v.temp > THRESHOLDS.TEMP_MAX) return true;
-      if (v.hr > THRESHOLDS.HR_MAX || v.hr < THRESHOLDS.HR_MIN) return true;
-      return false;
-    };
 
     vitals.forEach((v) => {
       const systolic = typeof v.systolic_bp === 'number' ? v.systolic_bp : null;

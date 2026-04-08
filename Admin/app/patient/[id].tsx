@@ -14,8 +14,11 @@ const { width } = Dimensions.get('window');
 export default function PatientDetail() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const currentPatient = useAppStore(state => state.currentPatient);
   const patients = useAppStore(state => state.patients);
-  const patient = patients.find(p => p.id === id);
+  
+  // First try to use currentPatient (from QR scan), then fallback to the patients list
+  const patient = currentPatient || patients.find(p => p.id === id);
 
   if (!patient) return null;
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import 'user_page.dart';
@@ -116,42 +117,166 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       if (!mounted) return;
 
       if (result.success) {
-        // Show success animation then navigate
+        // Show success animation with QR code
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (_) => Dialog(
             backgroundColor: Colors.transparent,
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(32),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Lottie.asset(
-                    'assets/animations/success_signup.json',
-                    height: 150,
-                    repeat: false,
-                    onLoaded: (composition) {
-                      Future.delayed(composition.duration, () {
-                        if (!mounted) return;
-                        Navigator.pop(context);
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const UserPage()),
-                        );
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Account Created!',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-                  ),
-                ],
+            child: SingleChildScrollView(
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(32),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Lottie.asset(
+                      'assets/animations/success_signup.json',
+                      height: 120,
+                      repeat: false,
+                      onLoaded: (composition) {
+                        // Auto navigate after showing QR
+                        Future.delayed(Duration(seconds: 4), () {
+                          if (!mounted) return;
+                          Navigator.pop(context);
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const UserPage()),
+                          );
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Account Created!',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Welcome, ${_nameCtrl.text}!',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    // QR Code
+                    if (result.userData?['qr_code'] != null) ...[
+                      const Text(
+                        'Your Unique QR Code:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.inputBg,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppTheme.divider),
+                        ),
+                        child: QrImage(
+                          data: result.userData!['qr_code'],
+                          version: QrVersions.auto,
+                          size: 240,
+                          gaplessMode: true,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF3CD),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFFD700), width: 1),
+                        ),
+                        child: Text(
+                          result.userData!['qr_code'],
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF856404),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    // Location & Info
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE3F2FD),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF90CAF9), width: 1),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.location_on, size: 16, color: AppTheme.primaryBlue),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Location Captured',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryBlue),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          if (result.userData?['latitude'] != null && result.userData?['longitude'] != null)
+                            Text(
+                              'Lat: ${result.userData!['latitude']?.toStringAsFixed(4)}, Lng: ${result.userData!['longitude']?.toStringAsFixed(4)}',
+                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                            )
+                          else
+                            const Text(
+                              'Location access requested',
+                              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const UserPage()),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryBlue,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text(
+                          'Continue to Home',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
