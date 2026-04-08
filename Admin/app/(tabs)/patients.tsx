@@ -59,7 +59,11 @@ export default function Patients() {
   };
 
   const AIPriorityCard = ({ item }: { item: PrioritizedPatient }) => (
-    <View style={[styles.aiCard, item.emergency_flag && styles.aiCardEmergency]}>
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() => router.push(`/patient/${item.patient_id}`)}
+      style={[styles.aiCard, item.emergency_flag && styles.aiCardEmergency]}
+    >
       <View style={[styles.aiOrderBadge, { backgroundColor: riskColor(item.risk_level) }]}>
         <Text style={styles.aiOrderText}>#{item.visit_order}</Text>
       </View>
@@ -86,7 +90,7 @@ export default function Patients() {
           </Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
