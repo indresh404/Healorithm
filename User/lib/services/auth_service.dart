@@ -1,6 +1,8 @@
 import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
+import 'location_service.dart';
+import 'qr_service.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -32,7 +34,13 @@ class AuthService {
         return AuthResult(success: false, error: 'Phone number already registered');
       }
 
-      // Insert new user with hashed password
+      // Get user's location
+      final position = await LocationService.getCurrentLocation();
+
+      // Generate QR code
+      final qrCode = QRService.generateQRCode();
+
+      // Insert new user with location, QR, and hashed password
       final response = await supabase
           .from('users')
           .insert({
@@ -42,6 +50,9 @@ class AuthService {
         'preferred_language': preferredLanguage,
         'phone': phone,
         'password': _hashPassword(password),
+        'qr_code': qrCode,
+        'latitude': position?.latitude,
+        'longitude': position?.longitude,
       })
           .select()
           .single();
