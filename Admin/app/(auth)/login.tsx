@@ -1,148 +1,395 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
+// app/(auth)/login.tsx
+
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAppStore } from '../../store/useAppStore';
-import { COLORS } from '../../constants/colors';
+import { useRouter } from 'expo-router';
+import Svg, { Path } from 'react-native-svg';
 
 const { width, height } = Dimensions.get('window');
 
-export default function Login() {
+export default function LoginScreen() {
   const router = useRouter();
-  const login = useAppStore(state => state.login);
-  
-  const [username, setUsername] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorVisible, setErrorVisible] = useState(false);
-  
-  const [passwordStats, setPasswordStats] = useState(true);
 
-  const shakeOffset = useSharedValue(0);
-
-  const handleLogin = () => {
-    if (username === 'worker1' && password === '1234') {
-      setLoading(true);
-      setErrorVisible(false);
-      setTimeout(() => {
-        setLoading(false);
-        login({ id: 'w1', name: 'Priya', username: 'worker1', zone: 'Zone B', phone: '9876543210', since: '2023' });
-        router.replace('/(tabs)/dashboard');
-      }, 1500);
-    } else {
-      setErrorVisible(true);
-      // Shake animation
-      shakeOffset.value = withSequence(
-        withTiming(10, { duration: 50 }),
-        withTiming(-10, { duration: 50 }),
-        withTiming(10, { duration: 50 }),
-        withTiming(0, { duration: 50 })
-      );
+  const handleLogin = async () => {
+    if (!phoneNumber || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
     }
+
+    if (phoneNumber.length < 10) {
+      Alert.alert('Error', 'Please enter a valid phone number');
+      return;
+    }
+
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      router.replace('/(tabs)/dashboard');
+    }, 1500);
   };
 
-  const shakeStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: shakeOffset.value }]
-  }));
+  const handleForgotPassword = () => {
+    Alert.alert('Forgot Password', 'Password reset link will be sent to your phone');
+  };
+
+  const handleGoogleSignIn = () => {
+    Alert.alert('Google Sign In', 'Google Sign In integration would go here');
+  };
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={[COLORS.PRIMARY_GREEN, COLORS.GREEN_DARK]} style={styles.gradientHeader}>
-        <View style={styles.logoCircle}>
-          <Text style={{ fontSize: 32 }}>🏥</Text>
-        </View>
-        <Text style={styles.appName}>HealthWorker</Text>
-        <Text style={styles.tagline}>Rural Healthcare Companion</Text>
-      </LinearGradient>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          {/* Top Curved Header Design */}
+          <View style={styles.topCurveWrapper}>
+            <View style={styles.topCurveContainer}>
+              <Svg height="180" width={width} style={styles.topSvg}>
+                <Path
+                  fill="#2CBD64"
+                  d={`
+                    M0 0 
+                    L${width} 0 
+                    L${width} 120 
+                    Q${width * 0.75} 180 
+                    ${width * 0.5} 150 
+                    Q${width * 0.25} 120 
+                    0 160 
+                    Z
+                  `}
+                />
+              </Svg>
+              <View style={styles.headerContent}>
+                <Text style={styles.signInTitle}>Sign In</Text>
+              </View>
+            </View>
+          </View>
 
-      <Animated.View style={[styles.card, shakeStyle]}>
-        <Text style={styles.title}>Welcome Back</Text>
-        <Text style={styles.subtitle}>Sign in to your worker account</Text>
+          {/* Main Content Area */}
+          <View style={styles.contentContainer}>
+            <View style={styles.welcomeSection}>
+              <Text style={styles.welcomeText}>Welcome Back!</Text>
+              <Text style={styles.subtitleText}>Sign in to continue</Text>
+            </View>
 
-        <View style={styles.inputWrapper}>
-          <Ionicons name="person-outline" size={20} color={COLORS.TEXT_SECONDARY} />
-          <TextInput
-            style={styles.input}
-            placeholder="Username"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-          />
-        </View>
+            <View style={styles.formContainer}>
+              {/* Phone Number Input */}
+              <View style={styles.inputWrapper}>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="call-outline" size={20} color="#757575" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter phone number"
+                    placeholderTextColor="#9E9E9E"
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                  />
+                </View>
+              </View>
 
-        <View style={styles.inputWrapper}>
-          <Ionicons name="lock-closed-outline" size={20} color={COLORS.TEXT_SECONDARY} />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            secureTextEntry={passwordStats}
-            value={password}
-            onChangeText={setPassword}
-          />
-          <TouchableOpacity onPress={() => setPasswordStats(!passwordStats)}>
-            <Ionicons name={passwordStats ? "eye-outline" : "eye-off-outline"} size={20} color={COLORS.TEXT_SECONDARY} />
-          </TouchableOpacity>
-        </View>
+              {/* Password Input */}
+              <View style={styles.inputWrapper}>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="lock-closed-outline" size={20} color="#757575" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter password"
+                    placeholderTextColor="#9E9E9E"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <Ionicons 
+                      name={showPassword ? 'eye-off' : 'eye'} 
+                      size={20} 
+                      color="#757575" 
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-        {errorVisible && <Text style={styles.errorText}>Invalid credentials</Text>}
+              {/* Remember Me & Forgot Password */}
+              <View style={styles.optionsContainer}>
+                <TouchableOpacity 
+                  style={styles.rememberContainer} 
+                  onPress={() => setRememberMe(!rememberMe)}
+                >
+                  <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                    {rememberMe && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                  </View>
+                  <Text style={styles.rememberText}>Remember me</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity onPress={handleForgotPassword}>
+                  <Text style={styles.forgotText}>Forgot Password?</Text>
+                </TouchableOpacity>
+              </View>
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color={COLORS.WHITE} />
-          ) : (
-            <Text style={styles.buttonText}>LOGIN</Text>
-          )}
-        </TouchableOpacity>
+              {/* Sign In Button */}
+              <TouchableOpacity 
+                style={[styles.signInButton, loading && styles.disabledButton]} 
+                onPress={handleLogin}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="log-in-outline" size={22} color="#FFFFFF" style={styles.buttonIcon} />
+                    <Text style={styles.signInButtonText}>Sign In</Text>
+                  </>
+                )}
+              </TouchableOpacity>
 
-        <Text style={styles.demoText}>Demo credentials: worker1 / 1234</Text>
-      </Animated.View>
+              {/* Divider */}
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.divider} />
+              </View>
+
+              {/* Google Sign In Button */}
+              <TouchableOpacity style={styles.googleButton} onPress={handleGoogleSignIn} activeOpacity={0.85}>
+                <Ionicons name="logo-google" size={22} color="#616161" />
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.OFF_WHITE },
-  gradientHeader: {
-    height: height * 0.4,
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollView: {
+    flexGrow: 1,
+  },
+  topCurveWrapper: {
+    backgroundColor: '#2CBD64',
+  },
+  topCurveContainer: {
+    height: 180,
+    position: 'relative',
+    backgroundColor: '#2CBD64',
+  },
+  topSvg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  headerContent: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: height * 0.1,
+    paddingTop: Platform.OS === 'ios' ? 60 : 50,
   },
-  logoCircle: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: COLORS.WHITE,
-    justifyContent: 'center', alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5,
+  signInTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
-  appName: { fontFamily: 'Poppins_700Bold', fontSize: 24, color: COLORS.WHITE },
-  tagline: { fontFamily: 'Poppins_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
-  card: {
-    backgroundColor: COLORS.WHITE,
-    borderRadius: 32,
-    marginHorizontal: 24,
-    padding: 24,
-    shadowColor: COLORS.CARD_SHADOW, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 1, shadowRadius: 20, elevation: 10,
-    marginTop: -80,
+  contentContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    marginTop: -30,
+    paddingTop: 30,
+    paddingBottom: 20,
   },
-  title: { fontFamily: 'Poppins_700Bold', fontSize: 22, color: COLORS.TEXT_PRIMARY, marginBottom: 4 },
-  subtitle: { fontFamily: 'Poppins_400Regular', fontSize: 13, color: COLORS.TEXT_SECONDARY, marginBottom: 24 },
+  welcomeSection: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  welcomeText: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#212121',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    marginBottom: 8,
+  },
+  subtitleText: {
+    fontSize: 16,
+    color: '#757575',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  formContainer: {
+    paddingHorizontal: 24,
+  },
   inputWrapper: {
-    flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.BORDER, borderRadius: 14,
-    paddingHorizontal: 12, paddingVertical: 14,
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  input: { flex: 1, marginLeft: 10, fontFamily: 'Poppins_500Medium', color: COLORS.TEXT_PRIMARY },
-  button: {
-    backgroundColor: COLORS.PRIMARY_GREEN,
-    borderRadius: 14,
-    paddingVertical: 16,
+  inputContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    paddingHorizontal: 16,
+    height: 55,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  buttonText: { fontFamily: 'Poppins_700Bold', color: COLORS.WHITE, fontSize: 16 },
-  demoText: { fontFamily: 'Poppins_300Light', fontSize: 12, color: COLORS.TEXT_SECONDARY, textAlign: 'center', marginTop: 16 },
-  errorText: { color: COLORS.DANGER_RED, fontFamily: 'Poppins_500Medium', fontSize: 12, marginBottom: 12, textAlign: 'center' },
+  inputIcon: {
+    marginRight: 12,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    color: '#212121',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  optionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  rememberContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#2CBD64',
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  checkboxChecked: {
+    backgroundColor: '#2CBD64',
+  },
+  rememberText: {
+    fontSize: 14,
+    color: '#616161',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  forgotText: {
+    fontSize: 14,
+    color: '#2CBD64',
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  signInButton: {
+    backgroundColor: '#2CBD64',
+    borderRadius: 14,
+    height: 56,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: '#2CBD64',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+    gap: 8,
+  },
+  buttonIcon: {
+    marginRight: 4,
+  },
+  disabledButton: {
+    opacity: 0.7,
+  },
+  signInButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E0E0E0',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: '#9E9E9E',
+    fontSize: 14,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    height: 56,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    gap: 12,
+  },
+  googleButtonText: {
+    fontSize: 16,
+    color: '#616161',
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  bottomCurveWrapper: {
+    backgroundColor: '#FFFFFF',
+  },
+  bottomSvg: {
+    position: 'relative',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
 });
