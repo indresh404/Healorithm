@@ -12,8 +12,8 @@ Future<void> main() async {
   try {
     debugPrint('⚙️ [Healorithm] Initializing Supabase...');
     await Supabase.initialize(
-      url: 'https://zaoutfnnnxdqhhzajwpc.supabase.co',
-      anonKey: 'sb_publishable_4chgF9SG3Tel7Ezjp84-Uw_HvhNaFRE',
+      url: 'https://kjtxdsgvsmaatxvjyjiy.supabase.co',
+      anonKey: 'sb_publishable_0Ll21kpoogWZshjctcsetg_0ZTLCCdB',
     );
     debugPrint('✅ [Healorithm] Supabase initialized.');
   } catch (e) {
