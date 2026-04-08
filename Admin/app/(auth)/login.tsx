@@ -1,5 +1,3 @@
-// app/(auth)/login.tsx
-
 import React, { useState } from 'react';
 import {
   View,
@@ -14,37 +12,92 @@ import {
   Alert,
   Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
+import { loginAdminByPhone } from '@/services/supabase.service';
+import { useAppStore } from '../../store/useAppStore';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login, loadPatientsFromDb } = useAppStore();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const normalizePhone = (value: string) => value.replace(/\D/g, '');
+
+  const buildPhoneCandidates = (raw: string) => {
+    const digits = normalizePhone(raw);
+    const candidates = new Set<string>();
+
+    if (digits.length === 10) {
+      candidates.add(digits);
+      candidates.add(`91${digits}`);
+      candidates.add(`+91${digits}`);
+    } else if (digits.length > 10) {
+      candidates.add(digits);
+      candidates.add(digits.slice(-10));
+      if (digits.startsWith('91') && digits.length >= 12) {
+        candidates.add(digits.slice(2));
+      }
+    }
+
+    return Array.from(candidates);
+  };
+
   const handleLogin = async () => {
-    if (!phoneNumber || !password) {
+    const normalizedPhone = normalizePhone(phoneNumber);
+
+    if (!normalizedPhone || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
-    if (phoneNumber.length < 10) {
+    if (!/^\d{10,15}$/.test(normalizedPhone)) {
       Alert.alert('Error', 'Please enter a valid phone number');
       return;
     }
 
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const admin = await loginAdminByPhone(buildPhoneCandidates(phoneNumber), password);
+      if (!admin) {
+        Alert.alert('Login failed', 'Invalid phone number or password');
+        return;
+      }
+
+      login({
+        id: admin.id,
+        name: admin.name ?? 'Admin',
+        username: admin.phone ?? '',
+        zone: 'Unknown',
+        since: admin.created_at,
+        phone: admin.phone ?? '',
+      });
+
+      try {
+        await loadPatientsFromDb();
+      } catch (err) {
+        Alert.alert('Warning', 'Logged in, but failed to load patient data.');
+      }
+
       router.replace('/(tabs)/dashboard');
-    }, 1500);
+    } catch (err: any) {
+      const message = typeof err?.message === 'string' ? err.message : 'Unable to sign in. Please try again.';
+      Alert.alert('Login failed', message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleForgotPassword = () => {
@@ -66,7 +119,6 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          {/* Top Curved Header Design */}
           <View style={styles.topCurveWrapper}>
             <View style={styles.topCurveContainer}>
               <Svg height="180" width={width} style={styles.topSvg}>
@@ -90,7 +142,6 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* Main Content Area */}
           <View style={styles.contentContainer}>
             <View style={styles.welcomeSection}>
               <Text style={styles.welcomeText}>Welcome Back!</Text>
@@ -98,7 +149,6 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.formContainer}>
-              {/* Phone Number Input */}
               <View style={styles.inputWrapper}>
                 <View style={styles.inputContainer}>
                   <Ionicons name="call-outline" size={20} color="#757575" style={styles.inputIcon} />
@@ -109,12 +159,11 @@ export default function LoginScreen() {
                     value={phoneNumber}
                     onChangeText={setPhoneNumber}
                     keyboardType="phone-pad"
-                    maxLength={10}
+                    maxLength={15}
                   />
                 </View>
               </View>
 
-              {/* Password Input */}
               <View style={styles.inputWrapper}>
                 <View style={styles.inputContainer}>
                   <Ionicons name="lock-closed-outline" size={20} color="#757575" style={styles.inputIcon} />
@@ -136,7 +185,6 @@ export default function LoginScreen() {
                 </View>
               </View>
 
-              {/* Remember Me & Forgot Password */}
               <View style={styles.optionsContainer}>
                 <TouchableOpacity 
                   style={styles.rememberContainer} 
@@ -153,7 +201,6 @@ export default function LoginScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Sign In Button */}
               <TouchableOpacity 
                 style={[styles.signInButton, loading && styles.disabledButton]} 
                 onPress={handleLogin}
@@ -170,14 +217,12 @@ export default function LoginScreen() {
                 )}
               </TouchableOpacity>
 
-              {/* Divider */}
               <View style={styles.dividerContainer}>
                 <View style={styles.divider} />
                 <Text style={styles.dividerText}>OR</Text>
                 <View style={styles.divider} />
               </View>
 
-              {/* Google Sign In Button */}
               <TouchableOpacity style={styles.googleButton} onPress={handleGoogleSignIn} activeOpacity={0.85}>
                 <Ionicons name="logo-google" size={22} color="#616161" />
                 <Text style={styles.googleButtonText}>Continue with Google</Text>
