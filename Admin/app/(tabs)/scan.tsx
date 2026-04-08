@@ -8,7 +8,35 @@ import * as Haptics from 'expo-haptics';
 import { COLORS } from '../../constants/colors';
 import { QROverlay } from '../../components/scanner/QROverlay';
 import { useAppStore } from '../../store/useAppStore';
-import { getPatientByQRCode, getPatientByQRCodeFallback, type PatientFullData } from '../../services/supabase.service';
+import { getPatientByQRCode, getPatientByQRCodeFallback, getPatientByUserIdFallback, type PatientFullData } from '../../services/supabase.service';
+
+const extractQRCodeValue = (rawData: string) => {
+  const trimmedData = rawData.trim();
+  const directMatch = trimmedData.match(/\bQR_[A-Z0-9]+\b/i);
+  if (directMatch) {
+    return directMatch[0].toUpperCase();
+  }
+
+  return null;
+};
+
+const extractUserIdFromPayload = (rawData: string) => {
+  const trimmedData = rawData.trim();
+
+  const healorithmMatch = trimmedData.match(
+    /^healorithm:\/\/user\/([0-9a-f-]{36})(?:\?.*)?$/i
+  );
+  if (healorithmMatch) {
+    return healorithmMatch[1];
+  }
+
+  const uuidMatch = trimmedData.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i);
+  if (uuidMatch) {
+    return uuidMatch[0];
+  }
+
+  return null;
+};
 
 export default function ScanScreen() {
   const router = useRouter();
@@ -34,16 +62,27 @@ export default function ScanScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
+      const normalizedQrCode = extractQRCodeValue(data);
+      const userId = extractUserIdFromPayload(data);
+
       // Try to fetch patient data using the QR code
       let patientData: PatientFullData;
-      
-      // First try RPC function
-      patientData = await getPatientByQRCode(data);
-      
-      // If RPC fails, fallback to multiple queries
-      if (!patientData.success) {
-        console.log('RPC failed, trying fallback method...');
-        patientData = await getPatientByQRCodeFallback(data);
+
+      if (normalizedQrCode) {
+        patientData = await getPatientByQRCode(normalizedQrCode);
+
+        if (!patientData.success) {
+          console.log('RPC unavailable or QR lookup missed, trying QR fallback...');
+          patientData = await getPatientByQRCodeFallback(normalizedQrCode);
+        }
+      } else if (userId) {
+        console.log('Legacy user profile QR detected, trying user id fallback...');
+        patientData = await getPatientByUserIdFallback(userId);
+      } else {
+        patientData = {
+          success: false,
+          error: 'Unsupported QR format',
+        };
       }
 
       if (!patientData.success || !patientData.user) {
@@ -51,7 +90,7 @@ export default function ScanScreen() {
         setScanned(false);
         Alert.alert(
           "Patient Not Found",
-          `The QR code doesn't match any registered patient.\n\nQR: ${data.substring(0, 20)}...`,
+          `The QR code doesn't match any registered patient.\n\nQR: ${data.substring(0, 40)}${data.length > 40 ? '...' : ''}`,
           [{ text: "Scan Again", onPress: () => {} }]
         );
         return;

@@ -79,6 +79,52 @@ export interface PatientFullData {
   prescriptions?: DbPrescription[];
 }
 
+const isMissingRpcFunctionError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+
+  const maybeError = error as { code?: string; message?: string };
+  return (
+    maybeError.code === "PGRST202" ||
+    maybeError.message?.includes("get_patient_full_data") === true
+  );
+};
+
+const fetchPatientRelatedData = async (patientId: string) => {
+  const [vitalsRes, recordsRes, aiRes, prescriptionsRes] = await Promise.all([
+    supabase
+      .from("vitals")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("recorded_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("medical_records")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("ai_consultations")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("prescriptions")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false })
+      .limit(50),
+  ]);
+
+  return {
+    vitals: (vitalsRes.data ?? []) as DbVital[],
+    medical_records: (recordsRes.data ?? []) as DbMedicalRecord[],
+    ai_consultations: (aiRes.data ?? []) as DbAIConsultation[],
+    prescriptions: (prescriptionsRes.data ?? []) as DbPrescription[],
+  };
+};
+
 export const loginUserByPhone = async (phones: string[], password: string) => {
   const candidates = phones.filter(Boolean);
   if (candidates.length === 0) return null;
@@ -174,7 +220,9 @@ export const getPatientByQRCode = async (qrCode: string): Promise<PatientFullDat
 
     return data as PatientFullData;
   } catch (error) {
-    console.error("Error fetching patient data:", error);
+    if (!isMissingRpcFunctionError(error)) {
+      console.error("Error fetching patient data:", error);
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to fetch patient data",
@@ -204,44 +252,51 @@ export const getPatientByQRCodeFallback = async (
       };
     }
 
-    // Step 2: Fetch all related data in parallel
-    const [vitalsRes, recordsRes, aiRes, prescriptionsRes] = await Promise.all([
-      supabase
-        .from("vitals")
-        .select("*")
-        .eq("patient_id", user.id)
-        .order("recorded_at", { ascending: false })
-        .limit(50),
-      supabase
-        .from("medical_records")
-        .select("*")
-        .eq("patient_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(100),
-      supabase
-        .from("ai_consultations")
-        .select("*")
-        .eq("patient_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50),
-      supabase
-        .from("prescriptions")
-        .select("*")
-        .eq("patient_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50),
-    ]);
+    const relatedData = await fetchPatientRelatedData(user.id);
 
     return {
       success: true,
       user: user as DbUser,
-      vitals: (vitalsRes.data ?? []) as DbVital[],
-      medical_records: (recordsRes.data ?? []) as DbMedicalRecord[],
-      ai_consultations: (aiRes.data ?? []) as DbAIConsultation[],
-      prescriptions: (prescriptionsRes.data ?? []) as DbPrescription[],
+      ...relatedData,
     };
   } catch (error) {
     console.error("Error fetching patient data (fallback):", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch patient data",
+    };
+  }
+};
+
+/**
+ * Fallback for legacy profile QR payloads that embed a user id in a deep link
+ */
+export const getPatientByUserIdFallback = async (
+  userId: string
+): Promise<PatientFullData> => {
+  try {
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (userError || !user) {
+      return {
+        success: false,
+        error: "User not found",
+      };
+    }
+
+    const relatedData = await fetchPatientRelatedData(user.id);
+
+    return {
+      success: true,
+      user: user as DbUser,
+      ...relatedData,
+    };
+  } catch (error) {
+    console.error("Error fetching patient data (user id fallback):", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to fetch patient data",

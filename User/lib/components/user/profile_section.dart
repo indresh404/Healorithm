@@ -106,9 +106,12 @@ class _ProfileSectionState extends State<ProfileSection> {
   String _getUserQrData() {
     final user = AuthService.currentUser;
     if (user != null) {
-      return 'healorithm://user/${user['id']}?name=${Uri.encodeComponent(user['name'])}&phone=${user['phone']}';
+      final qrCode = user['qr_code']?.toString();
+      if (qrCode != null && qrCode.isNotEmpty) {
+        return qrCode;
+      }
     }
-    return 'healorithm://user/unknown';
+    return 'QR_CODE_UNAVAILABLE';
   }
 
   String _formatDate(String? dateStr) {
