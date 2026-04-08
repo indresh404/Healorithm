@@ -186,10 +186,14 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: AppTheme.divider),
                         ),
-                        child: QrImageView(
-                          data: result.userData!['qr_code'] ?? 'QR_CODE',
-                          version: QrVersions.auto,
-                          size: 240.0,
+                        child: SizedBox(
+                          width: 240,
+                          height: 240,
+                          child: QrImageView(
+                            data: result.userData!['qr_code'],
+                            version: QrVersions.auto,
+                            gapless: true,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),

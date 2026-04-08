@@ -1,1 +1,4 @@
-import { View, Text } from 'react-native'; export default function Screen() { return <View><Text>Placeholder</Text></View>; }
+import { Redirect } from 'expo-router';
+export default function Scan() {
+  return <Redirect href="/(tabs)/scan" />;
+}
