@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { Patient, MOCK_PATIENTS, VitalParams } from '../constants/mockData';
+import { Patient, VitalParams } from '../constants/mockData';
 import { THRESHOLDS } from '../constants/thresholds';
+import { getUsers, getVitalsForPatients, recordVitals } from '../services/supabase.service';
 
 interface Worker {
   id: string;
@@ -38,7 +39,8 @@ interface AppState {
   lastSyncTime: Date | null;
   login: (worker: Worker) => void;
   logout: () => void;
-  updatePatientVitals: (patientId: string, vitals: Omit<VitalParams, 'id'>) => void;
+  loadPatientsFromDb: () => Promise<void>;
+  updatePatientVitals: (patientId: string, vitals: Omit<VitalParams, 'id'>) => Promise<void>;
   addToSyncQueue: (item: Omit<SyncItem, 'id' | 'timestamp'>) => void;
   markSynced: (itemId: string) => void;
   simulateSync: () => Promise<void>;
@@ -48,7 +50,7 @@ interface AppState {
 export const useAppStore = create<AppState>((set, get) => ({
   isLoggedIn: false,
   currentWorker: null,
-  patients: MOCK_PATIENTS,
+  patients: [],
   syncQueue: [],
   alerts: [],
   lastSyncTime: null,
@@ -56,7 +58,85 @@ export const useAppStore = create<AppState>((set, get) => ({
   login: (worker) => set({ isLoggedIn: true, currentWorker: worker }),
   logout: () => set({ isLoggedIn: false, currentWorker: null }),
   
-  updatePatientVitals: (patientId, vitals) => {
+  loadPatientsFromDb: async () => {
+    const users = await getUsers();
+    const vitals = await getVitalsForPatients(users.map(u => u.id));
+    const vitalsByPatient = new Map<string, VitalParams[]>();
+
+    const isHighRisk = (v: VitalParams) => {
+      const [sys, dia] = v.bp.split('/').map(Number);
+      if (sys > THRESHOLDS.BP_SYSTOLIC_MAX || dia > THRESHOLDS.BP_DIASTOLIC_MAX) return true;
+      if (v.spo2 < THRESHOLDS.SPO2_MIN) return true;
+      if (v.temp > THRESHOLDS.TEMP_MAX) return true;
+      if (v.hr > THRESHOLDS.HR_MAX || v.hr < THRESHOLDS.HR_MIN) return true;
+      return false;
+    };
+
+    vitals.forEach((v) => {
+      const systolic = typeof v.systolic_bp === 'number' ? v.systolic_bp : null;
+      const diastolic = typeof v.diastolic_bp === 'number' ? v.diastolic_bp : null;
+      const bp = systolic !== null && diastolic !== null ? `${systolic}/${diastolic}` : 'N/A';
+      const entry: VitalParams = {
+        id: v.id,
+        date: v.recorded_at ?? v.created_at,
+        bp,
+        spo2: v.spo2 ?? 0,
+        temp: v.temperature ?? 0,
+        hr: v.heart_rate ?? 0,
+      };
+      entry.isHighRisk = isHighRisk(entry);
+
+      const list = vitalsByPatient.get(v.patient_id) ?? [];
+      list.push(entry);
+      vitalsByPatient.set(v.patient_id, list);
+    });
+
+    for (const [, list] of vitalsByPatient) {
+      list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }
+
+    const patients: Patient[] = users.map((u) => {
+      const history = vitalsByPatient.get(u.id) ?? [];
+      const latest = history[0];
+      const highRisk = latest?.isHighRisk ?? false;
+      const riskLevel = highRisk ? 'HIGH' : 'LOW';
+      const riskScore = highRisk ? 85 : 20;
+      const lastVisited = latest?.date ?? u.updated_at ?? u.created_at ?? new Date().toISOString();
+
+      return {
+        id: u.id,
+        name: u.name,
+        age: u.age ?? 0,
+        gender: u.gender ?? 'Unknown',
+        village: 'Unknown',
+        conditions: [],
+        riskLevel,
+        riskScore,
+        emergencyFlag: highRisk,
+        lastVisited,
+        overdue: false,
+        adherencePercentage: 0,
+        adherenceLog: ['none', 'none', 'none', 'none', 'none', 'none', 'none'],
+        vitalsHistory: history,
+        prescriptions: [],
+        notes: '',
+      };
+    });
+
+    set({ patients });
+  },
+
+  updatePatientVitals: async (patientId, vitals) => {
+    await recordVitals({
+      patient_id: patientId,
+      systolic_bp: Number(vitals.bp.split('/')[0]),
+      diastolic_bp: Number(vitals.bp.split('/')[1]),
+      heart_rate: vitals.hr,
+      spo2: vitals.spo2,
+      temperature: vitals.temp,
+      recorded_at: vitals.date,
+    });
+
     let alertCreated = false;
     let alertDetails: any = null;
 
