@@ -153,6 +153,21 @@ export default function PatientDetail() {
           </Card>
         </View>
 
+        {/* AI Clinical Summary */}
+        {patient.aiSummary && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>AI Clinical Summary</Text>
+            <Card style={styles.aiSummaryCard}>
+              <View style={styles.aiHeader}>
+                <Ionicons name="sparkles" size={20} color={COLORS.PRIMARY_GREEN} />
+                <Text style={styles.aiTitle}>Latest Assessment</Text>
+              </View>
+              <Text style={styles.aiText}>{patient.aiSummary}</Text>
+              <Text style={styles.aiFooter}>Assessment generated from patient vitals and medical history</Text>
+            </Card>
+          </View>
+        )}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Live Location</Text>
           <Card style={styles.locationCard}>
@@ -204,7 +219,10 @@ export default function PatientDetail() {
                 <Text style={styles.vitalDate}>
                   {new Date(v.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </Text>
-                {v.isHighRisk && <Badge label="HIGH" type="HIGH" />}
+                <View style={styles.vitalBadges}>
+                  {v.isHighRisk && <Badge label="HIGH" type="HIGH" />}
+                  {v.isCritical && <Badge label="CRITICAL" type="HIGH" />}
+                </View>
               </View>
               <View style={styles.vitalsGrid}>
                 <View style={styles.vitalStat}>
@@ -224,6 +242,12 @@ export default function PatientDetail() {
                   <Text style={styles.vitalValue}>{v.hr} bpm</Text>
                 </View>
               </View>
+              {v.notes && (
+                <View style={styles.vitalNotes}>
+                  <Text style={styles.vitalNotesLabel}>Notes:</Text>
+                  <Text style={styles.vitalNotesText}>{v.notes}</Text>
+                </View>
+              )}
             </Card>
           ))}
         </View>
@@ -411,6 +435,36 @@ const styles = StyleSheet.create({
     color: COLORS.TEXT_SECONDARY,
     marginTop: 12,
   },
+  aiSummaryCard: {
+    padding: 16,
+    backgroundColor: COLORS.GREEN_LIGHT,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.PRIMARY_GREEN,
+  },
+  aiHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  aiTitle: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 13,
+    color: COLORS.PRIMARY_GREEN,
+  },
+  aiText: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 12,
+    color: COLORS.TEXT_PRIMARY,
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  aiFooter: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 10,
+    color: COLORS.TEXT_SECONDARY,
+    fontStyle: 'italic',
+  },
   locationCard: {
     padding: 14,
   },
@@ -498,6 +552,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.TEXT_PRIMARY,
   },
+  vitalBadges: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   vitalsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -515,6 +573,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_700Bold',
     fontSize: 14,
     color: COLORS.TEXT_PRIMARY,
+  },
+  vitalNotes: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.BORDER,
+  },
+  vitalNotesLabel: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 11,
+    color: COLORS.TEXT_SECONDARY,
+    marginBottom: 4,
+  },
+  vitalNotesText: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 12,
+    color: COLORS.TEXT_PRIMARY,
+    lineHeight: 16,
   },
   bottomActions: {
     position: 'absolute',

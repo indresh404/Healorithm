@@ -154,10 +154,13 @@ export const recordVitals = async (input: {
   temperature: number;
   recorded_at?: string;
   recorded_by?: string;
+  notes?: string;
+  is_critical?: boolean;
 }) => {
-  const { error } = await supabase
-    .from("vitals")
-    .insert({
+  try {
+    console.log('📊 Recording vitals for patient:', input.patient_id);
+    
+    const insertData: any = {
       patient_id: input.patient_id,
       systolic_bp: input.systolic_bp,
       diastolic_bp: input.diastolic_bp,
@@ -165,10 +168,37 @@ export const recordVitals = async (input: {
       spo2: input.spo2,
       temperature: input.temperature,
       recorded_at: input.recorded_at ?? new Date().toISOString(),
-      ...(input.recorded_by ? { recorded_by: input.recorded_by } : {}),
-    });
+    };
 
-  if (error) throw error;
+    // Only include recorded_by if it's explicitly provided AND not empty
+    // This avoids foreign key errors when worker IDs don't exist in admins table
+    if (input.recorded_by && input.recorded_by.trim()) {
+      insertData.recorded_by = input.recorded_by;
+    }
+    
+    if (input.notes) insertData.notes = input.notes;
+    if (input.is_critical !== undefined) insertData.is_critical = input.is_critical;
+
+    console.log('📋 Insert data:', insertData);
+
+    const { data, error } = await supabase
+      .from("vitals")
+      .insert(insertData)
+      .select();
+
+    console.log('📨 Supabase response - Data:', data, 'Error:', error);
+
+    if (error) {
+      console.error('🚨 Supabase error:', error.message, error.details);
+      throw new Error(`Failed to save vitals: ${error.message} - ${error.details || ''}`);
+    }
+
+    console.log('✅ Vitals recorded successfully:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ Error in recordVitals:', error);
+    throw error;
+  }
 };
 
 /**

@@ -133,6 +133,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         spo2: v.spo2 ?? 0,
         temp: v.temperature ?? 0,
         hr: v.heart_rate ?? 0,
+        notes: v.notes ?? undefined,
+        isCritical: v.is_critical ?? false,
       };
       entry.isHighRisk = isHighRisk(entry);
       return entry;
@@ -165,6 +167,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       vitalsHistory,
       prescriptions: (patientData.prescriptions || []).map((p: any) => `${p.medicine_name ?? ''} ${p.dosage ?? ''}`.trim()),
       notes: latestAI?.summary || '',
+      aiSummary: latestAI?.summary || undefined,
     };
 
     set({ currentPatient: patient });
@@ -186,6 +189,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         spo2: v.spo2 ?? 0,
         temp: v.temperature ?? 0,
         hr: v.heart_rate ?? 0,
+        notes: v.notes ?? undefined,
+        isCritical: v.is_critical ?? false,
       };
       entry.isHighRisk = isHighRisk(entry);
 
@@ -233,22 +238,34 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   updatePatientVitals: async (patientId, vitals) => {
-    await recordVitals({
-      patient_id: patientId,
-      systolic_bp: Number(vitals.bp.split('/')[0]),
-      diastolic_bp: Number(vitals.bp.split('/')[1]),
-      heart_rate: vitals.hr,
-      spo2: vitals.spo2,
-      temperature: vitals.temp,
-      recorded_at: vitals.date,
-      recorded_by: get().currentWorker?.id,
-    });
+    try {
+      console.log('📤 Saving vitals to Supabase...', { patientId, vitals });
+      
+      await recordVitals({
+        patient_id: patientId,
+        systolic_bp: Number(vitals.bp.split('/')[0]),
+        diastolic_bp: Number(vitals.bp.split('/')[1]),
+        heart_rate: vitals.hr,
+        spo2: vitals.spo2,
+        temperature: vitals.temp,
+        recorded_at: vitals.date,
+        // Don't send recorded_by as it's a worker ID, not an admin ID
+        // recorded_by is kept as optional in schema
+        notes: vitals.notes,
+        is_critical: vitals.isCritical,
+      });
 
-    let alertCreated = false;
-    let alertDetails: any = null;
+      console.log('✅ Vitals saved to Supabase successfully');
 
-    // Check thresholds
-    const isEmergency = () => {
+      let alertCreated = false;
+      let alertDetails: any = null;
+
+      // Check thresholds or critical flag
+      const isEmergency = () => {
+        if (vitals.isCritical) {
+          alertDetails = { type: 'CRITICAL FLAG', value: `Critical observation recorded` };
+        return true;
+      }
       const { bp, spo2, temp, hr } = vitals;
       if (bp) {
         const [sys, dia] = bp.split('/').map(Number);
@@ -276,6 +293,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const newVital: VitalParams = {
       id: Math.random().toString(),
       isHighRisk: emergency,
+      isCritical: vitals.isCritical,
+      notes: vitals.notes,
       ...vitals,
     };
 
@@ -313,6 +332,51 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
 
     get().addToSyncQueue({ type: 'VITALS_UPDATE', data: { patientId, vitals } });
+    } catch (error) {
+      console.error('❌ Error saving vitals:', error);
+      
+      // Still update local state even if DB save fails
+      let alertDetails: any = null;
+      const isEmergency = () => {
+        if (vitals.isCritical) return true;
+        const { bp, spo2, temp, hr } = vitals;
+        if (bp) {
+          const [sys, dia] = bp.split('/').map(Number);
+          if (sys > THRESHOLDS.BP_SYSTOLIC_MAX || dia > THRESHOLDS.BP_DIASTOLIC_MAX) return true;
+        }
+        if (spo2 && spo2 < THRESHOLDS.SPO2_MIN) return true;
+        if (temp && temp > THRESHOLDS.TEMP_MAX) return true;
+        if (hr && (hr > THRESHOLDS.HR_MAX || hr < THRESHOLDS.HR_MIN)) return true;
+        return false;
+      };
+
+      const emergency = isEmergency();
+      const newVital: VitalParams = {
+        id: Math.random().toString(),
+        isHighRisk: emergency,
+        isCritical: vitals.isCritical,
+        notes: vitals.notes,
+        ...vitals,
+      };
+
+      set((state) => {
+        const newPatients = state.patients.map((p) => {
+          if (p.id === patientId) {
+            p.vitalsHistory = [newVital, ...p.vitalsHistory];
+            if (emergency) {
+              p.riskLevel = 'HIGH';
+              p.emergencyFlag = true;
+            }
+            return p;
+          }
+          return p;
+        });
+        return { patients: newPatients };
+      });
+
+      get().addToSyncQueue({ type: 'VITALS_UPDATE', data: { patientId, vitals } });
+      throw error;
+    }
   },
 
   addToSyncQueue: (item) => {

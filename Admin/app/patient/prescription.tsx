@@ -17,6 +17,8 @@ export default function Prescription() {
   const [dosage, setDosage] = useState('');
   const [frequency, setFrequency] = useState('');
   const [duration, setDuration] = useState('');
+  const [mealTiming, setMealTiming] = useState('');
+  const [notes, setNotes] = useState('');
 
   const handleSave = () => {
     if (!medication || !dosage || !frequency) {
@@ -24,7 +26,7 @@ export default function Prescription() {
       return;
     }
 
-    const prescriptionString = `${medication} ${dosage}, ${frequency}${duration ? ' for ' + duration : ''}`;
+    const prescriptionString = `${medication} ${dosage}, ${frequency}${duration ? ' for ' + duration : ''}${mealTiming ? ', ' + mealTiming : ''}${notes ? ' (' + notes + ')' : ''}`;
     
     // In a real app, we'd update the patient record. For demo, we just add to sync queue.
     addToSyncQueue({
@@ -99,6 +101,30 @@ export default function Prescription() {
                placeholder="e.g. 30 days" 
                value={duration}
                onChangeText={setDuration}
+             />
+          </View>
+
+          <Text style={styles.inputLabel}>Meal Timing (Optional)</Text>
+          <View style={styles.inputWrapper}>
+             <Ionicons name="restaurant-outline" size={20} color={COLORS.PRIMARY_GREEN} />
+             <TextInput 
+               style={styles.input} 
+               placeholder="e.g. Before food, After food" 
+               value={mealTiming}
+               onChangeText={setMealTiming}
+             />
+          </View>
+
+          <Text style={styles.inputLabel}>Additional Notes (Optional)</Text>
+          <View style={styles.notesWrapper}>
+             <Ionicons name="document-text-outline" size={20} color={COLORS.PRIMARY_GREEN} />
+             <TextInput 
+               style={[styles.input, styles.notesInput]} 
+               placeholder="e.g. Take with water, avoid dairy products" 
+               value={notes}
+               onChangeText={setNotes}
+               multiline
+               numberOfLines={3}
              />
           </View>
         </Card>
@@ -180,12 +206,25 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginBottom: 20,
   },
+  notesWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    marginBottom: 20,
+  },
   input: {
     flex: 1,
     marginLeft: 12,
     fontFamily: 'Poppins_500Medium',
     fontSize: 14,
     color: COLORS.TEXT_PRIMARY,
+  },
+  notesInput: {
+    textAlignVertical: 'top',
   },
   disclaimer: {
     fontFamily: 'Poppins_400Regular',

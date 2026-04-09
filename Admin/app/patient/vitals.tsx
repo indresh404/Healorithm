@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Switch } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +19,8 @@ export default function RecordVitals() {
   const [spo2, setSpo2] = useState('');
   const [temp, setTemp] = useState('');
   const [hr, setHr] = useState('');
+  const [notes, setNotes] = useState('');
+  const [isCritical, setIsCritical] = useState(false);
   
   const [isEmergency, setIsEmergency] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -53,25 +55,36 @@ export default function RecordVitals() {
     setErrorMessage(msg);
   }, [bpSys, bpDia, spo2, temp, hr]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!bpSys || !bpDia || !spo2 || !temp || !hr) {
       Alert.alert("Missing Data", "Please fill in all vital fields.");
       return;
     }
 
-    updatePatientVitals(id as string, {
-      date: new Date().toISOString(),
-      bp: `${bpSys}/${bpDia}`,
-      spo2: Number(spo2),
-      temp: Number(temp),
-      hr: Number(hr),
-    });
+    try {
+      await updatePatientVitals(id as string, {
+        date: new Date().toISOString(),
+        bp: `${bpSys}/${bpDia}`,
+        spo2: Number(spo2),
+        temp: Number(temp),
+        hr: Number(hr),
+        notes: notes || undefined,
+        isCritical: isCritical,
+      });
 
-    Alert.alert(
-      isEmergency ? "🚨 EMERGENCY FLAGGED" : "Success",
-      isEmergency ? "Vitals saved and emergency alert sent to medical team." : "Vitals recorded successfully.",
-      [{ text: "OK", onPress: () => router.back() }]
-    );
+      Alert.alert(
+        isEmergency || isCritical ? "🚨 EMERGENCY FLAGGED" : "Success",
+        isEmergency || isCritical ? "Vitals saved and emergency alert sent to medical team." : "Vitals recorded successfully.",
+        [{ text: "OK", onPress: () => router.back() }]
+      );
+    } catch (error) {
+      console.error('Error saving vitals:', error);
+      Alert.alert(
+        "Error",
+        `Failed to save vitals: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        [{ text: "OK" }]
+      );
+    }
   };
 
   if (!patient) return null;
@@ -143,6 +156,36 @@ export default function RecordVitals() {
             onChangeText={setSpo2} 
             hasError={!!spo2 && Number(spo2) < THRESHOLDS.SPO2_MIN}
           />
+
+          <View style={styles.divider} />
+
+          <View style={styles.notesSection}>
+            <Text style={styles.notesLabel}>Clinical Notes (Optional)</Text>
+            <TextInput 
+              style={styles.notesInput}
+              placeholder="Add any clinical observations..."
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              numberOfLines={4}
+              placeholderTextColor={COLORS.TEXT_SECONDARY}
+            />
+          </View>
+
+          <View style={styles.criticalSection}>
+            <View style={styles.criticalLabelRow}>
+              <Ionicons name="alert-circle" size={20} color={COLORS.DANGER_RED} />
+              <Text style={styles.criticalLabel}>Mark as Critical</Text>
+            </View>
+            <Text style={styles.criticalSubtitle}>Check if patient requires immediate medical attention</Text>
+            <Switch 
+              value={isCritical}
+              onValueChange={setIsCritical}
+              trackColor={{ false: COLORS.BORDER, true: COLORS.DANGER_RED }}
+              thumbColor={isCritical ? COLORS.DANGER_RED : COLORS.TEXT_SECONDARY}
+              style={styles.switch}
+            />
+          </View>
         </View>
 
         {isEmergency && (
@@ -157,10 +200,10 @@ export default function RecordVitals() {
 
       <View style={styles.bottomBar}>
         <TouchableOpacity 
-          style={[styles.saveBtn, isEmergency && { backgroundColor: COLORS.DANGER_RED }]} 
+          style={[styles.saveBtn, (isEmergency || isCritical) && { backgroundColor: COLORS.DANGER_RED }]} 
           onPress={handleSave}
         >
-          <Text style={styles.saveText}>{isEmergency ? "SAVE + FLAG EMERGENCY" : "SAVE VITALS"}</Text>
+          <Text style={styles.saveText}>{isEmergency || isCritical ? "SAVE + FLAG EMERGENCY" : "SAVE VITALS"}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -215,6 +258,59 @@ const styles = StyleSheet.create({
   bpRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.BORDER,
+    marginVertical: 20,
+  },
+  notesSection: {
+    marginBottom: 20,
+  },
+  notesLabel: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 14,
+    color: COLORS.TEXT_PRIMARY,
+    marginBottom: 8,
+  },
+  notesInput: {
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    borderRadius: 12,
+    padding: 12,
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 13,
+    color: COLORS.TEXT_PRIMARY,
+    backgroundColor: COLORS.WHITE,
+    textAlignVertical: 'top',
+  },
+  criticalSection: {
+    backgroundColor: COLORS.DANGER_RED + '10',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.DANGER_RED,
+    marginBottom: 10,
+  },
+  criticalLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  criticalLabel: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 14,
+    color: COLORS.TEXT_PRIMARY,
+  },
+  criticalSubtitle: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 12,
+    color: COLORS.TEXT_SECONDARY,
+    marginBottom: 12,
+  },
+  switch: {
+    alignSelf: 'flex-start',
   },
   errorBanner: {
     backgroundColor: COLORS.DANGER_RED,
