@@ -10,38 +10,35 @@ import { Card } from '../../components/ui/Card';
 export default function Prescription() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { patients, addPatientPrescription } = useAppStore();
+  const { patients, addToSyncQueue } = useAppStore();
   const patient = patients.find(p => p.id === id);
 
   const [medication, setMedication] = useState('');
   const [dosage, setDosage] = useState('');
   const [frequency, setFrequency] = useState('');
   const [duration, setDuration] = useState('');
+  const [mealTiming, setMealTiming] = useState('');
+  const [notes, setNotes] = useState('');
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!medication || !dosage || !frequency) {
       Alert.alert("Error", "Please fill in medication name, dosage and frequency.");
       return;
     }
-    try {
-      await addPatientPrescription(id as string, {
-        medication,
-        dosage,
-        timing: frequency,
-        duration,
-      });
 
-      Alert.alert(
-        "Success",
-        "Prescription saved successfully.",
-        [{ text: "OK", onPress: () => router.back() }]
-      );
-    } catch (error) {
-      Alert.alert(
-        "Save failed",
-        error instanceof Error ? error.message : "Unable to save prescription."
-      );
-    }
+    const prescriptionString = `${medication} ${dosage}, ${frequency}${duration ? ' for ' + duration : ''}${mealTiming ? ', ' + mealTiming : ''}${notes ? ' (' + notes + ')' : ''}`;
+    
+    // In a real app, we'd update the patient record. For demo, we just add to sync queue.
+    addToSyncQueue({
+      type: 'ADD_PRESCRIPTION',
+      data: { patientId: id, prescription: prescriptionString }
+    });
+
+    Alert.alert(
+      "Success",
+      "Prescription added and queued for sync.",
+      [{ text: "OK", onPress: () => router.back() }]
+    );
   };
 
   if (!patient) return null;
@@ -104,6 +101,30 @@ export default function Prescription() {
                placeholder="e.g. 30 days" 
                value={duration}
                onChangeText={setDuration}
+             />
+          </View>
+
+          <Text style={styles.inputLabel}>Meal Timing (Optional)</Text>
+          <View style={styles.inputWrapper}>
+             <Ionicons name="restaurant-outline" size={20} color={COLORS.PRIMARY_GREEN} />
+             <TextInput 
+               style={styles.input} 
+               placeholder="e.g. Before food, After food" 
+               value={mealTiming}
+               onChangeText={setMealTiming}
+             />
+          </View>
+
+          <Text style={styles.inputLabel}>Additional Notes (Optional)</Text>
+          <View style={styles.notesWrapper}>
+             <Ionicons name="document-text-outline" size={20} color={COLORS.PRIMARY_GREEN} />
+             <TextInput 
+               style={[styles.input, styles.notesInput]} 
+               placeholder="e.g. Take with water, avoid dairy products" 
+               value={notes}
+               onChangeText={setNotes}
+               multiline
+               numberOfLines={3}
              />
           </View>
         </Card>
@@ -185,12 +206,25 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginBottom: 20,
   },
+  notesWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    marginBottom: 20,
+  },
   input: {
     flex: 1,
     marginLeft: 12,
     fontFamily: 'Poppins_500Medium',
     fontSize: 14,
     color: COLORS.TEXT_PRIMARY,
+  },
+  notesInput: {
+    textAlignVertical: 'top',
   },
   disclaimer: {
     fontFamily: 'Poppins_400Regular',

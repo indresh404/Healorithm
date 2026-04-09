@@ -1,43 +1,14 @@
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, Camera } from 'expo-camera';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { COLORS } from '../../constants/colors';
 import { QROverlay } from '../../components/scanner/QROverlay';
 import { useAppStore } from '../../store/useAppStore';
-import {
-  getPatientByQRCode,
-  getPatientByQRCodeFallback,
-  getPatientByUserIdFallback,
-  type PatientFullData,
-} from '../../services/supabase.service';
-
-const extractQRCodeValue = (rawData: string) => {
-  const trimmedData = rawData.trim();
-  const directMatch = trimmedData.match(/\bQR_[A-Z0-9]+\b/i);
-  if (directMatch) return directMatch[0].toUpperCase();
-  return null;
-};
-
-const extractUserIdFromPayload = (rawData: string) => {
-  const trimmedData = rawData.trim();
-
-  const healorithmMatch = trimmedData.match(
-    /^healorithm:\/\/user\/([0-9a-f-]{36})(?:\?.*)?$/i
-  );
-  if (healorithmMatch) return healorithmMatch[1];
-
-  const uuidMatch = trimmedData.match(
-    /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i
-  );
-  if (uuidMatch) return uuidMatch[0];
-
-  return null;
-};
+import { getPatientByQRCode, getPatientByQRCodeFallback, type PatientFullData } from '../../services/supabase.service';
 
 export default function ScanScreen() {
   const router = useRouter();
@@ -57,13 +28,7 @@ export default function ScanScreen() {
     getCameraPermissions();
   }, []);
 
-  useFocusEffect(() => {
-    setScanned(false);
-    setIsLoading(false);
-    return undefined;
-  });
-
-  const handleBarCodeScanned = async ({ data }: { data: string }) => {
+  const handleBarCodeScanned = async ({ type, data }: any) => {
     if (scanned || isLoading) return;
     setScanned(true);
     setIsLoading(true);
@@ -121,19 +86,10 @@ export default function ScanScreen() {
   };
 
   if (hasPermission === null) {
-    return (
-      <View style={styles.container}>
-        <Text>Requesting camera permission...</Text>
-      </View>
-    );
+    return <View style={styles.container}><Text>Requesting camera permission...</Text></View>;
   }
-
   if (hasPermission === false) {
-    return (
-      <View style={styles.container}>
-        <Text>No access to camera</Text>
-      </View>
-    );
+    return <View style={styles.container}><Text>No access to camera</Text></View>;
   }
 
   return (
@@ -179,9 +135,6 @@ export default function ScanScreen() {
             onPress={() => handleBarCodeScanned({ data: 'QR-TEST-001' })}
           >
             <Text style={styles.manualText}>Test Scan (Demo)</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.rescanBtn} onPress={() => setScanned(false)}>
-            <Text style={styles.rescanText}>Scan Again</Text>
           </TouchableOpacity>
           <Text style={styles.subText}>Or scan a valid patient QR code</Text>
       </View>
@@ -266,19 +219,6 @@ const styles = StyleSheet.create({
   manualText: {
     fontFamily: 'Poppins_700Bold',
     fontSize: 14,
-    color: COLORS.WHITE,
-  },
-  rescanBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.45)',
-    marginBottom: 12,
-  },
-  rescanText: {
-    fontFamily: 'Poppins_600SemiBold',
-    fontSize: 13,
     color: COLORS.WHITE,
   },
   subText: {

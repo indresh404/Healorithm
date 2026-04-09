@@ -10,7 +10,7 @@ from config import (
     SUPABASE_URL, SUPABASE_ANON_KEY,
     TABLE_USERS, TABLE_AI_CONSULTATIONS,
     TABLE_VITALS, TABLE_PRESCRIPTIONS,
-    TABLE_VISIT_RECORDS, TABLE_WORKER_ASSIGNMENTS, TABLE_ADMINS,
+    TABLE_VISIT_RECORDS, TABLE_WORKER_ASSIGNMENTS, TABLE_WORKERS,
 )
 from datetime import datetime
 import traceback
@@ -222,8 +222,8 @@ def update_worker_last_sync(worker_id: str):
 # ADMIN (WORKER LOGIN) QUERIES
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def fetch_admin_by_phone(phone: str) -> dict | None:
-    """Look up an admin/worker by phone for login."""
+def fetch_worker_by_phone(phone: str) -> dict | None:
+    """Look up a worker by phone for login."""
     # Try multiple phone formats (with/without country code)
     candidates = [phone]
     digits = ''.join(c for c in phone if c.isdigit())
@@ -231,9 +231,9 @@ def fetch_admin_by_phone(phone: str) -> dict | None:
         candidates += [digits, f'91{digits}', f'+91{digits}']
     elif len(digits) > 10:
         candidates += [digits, digits[-10:], f'+{digits}']
-    res = get_client().table(TABLE_ADMINS)\
+    res = get_client().table(TABLE_WORKERS)\
         .select("*")\
-        .in_("phone", candidates)\
+        .in_("phone_no", candidates)\
         .limit(1)\
         .execute()
     return res.data[0] if res.data else None

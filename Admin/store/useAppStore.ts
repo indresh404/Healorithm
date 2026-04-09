@@ -50,14 +50,6 @@ interface AppState {
   setCurrentPatient: (patientData: any) => void;
   loadPatientsFromDb: () => Promise<void>;
   updatePatientVitals: (patientId: string, vitals: Omit<VitalParams, 'id'>) => Promise<void>;
-  addPatientPrescription: (patientId: string, payload: {
-    medication: string;
-    dosage?: string;
-    timing?: string;
-    duration?: string;
-    mealTiming?: string;
-    notes?: string;
-  }) => Promise<void>;
   addToSyncQueue: (item: Omit<SyncItem, 'id' | 'timestamp'>) => void;
   markSynced: (itemId: string) => void;
   simulateSync: () => Promise<void>;
@@ -75,16 +67,6 @@ const isHighRisk = (v: VitalParams) => {
   if (v.temp > THRESHOLDS.TEMP_MAX) return true;
   if (v.hr > THRESHOLDS.HR_MAX || v.hr < THRESHOLDS.HR_MIN) return true;
   return false;
-};
-
-const mapPrescriptionToText = (p: Partial<DbPrescription>) => {
-  const name = p.medicine_name ?? '';
-  return [
-    name,
-    p.dosage ?? '',
-    p.timing ?? '',
-    p.duration ?? '',
-  ].filter((value) => Boolean(value)).join(' ').trim();
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -151,29 +133,28 @@ export const useAppStore = create<AppState>((set, get) => ({
         spo2: v.spo2 ?? 0,
         temp: v.temperature ?? 0,
         hr: v.heart_rate ?? 0,
+        notes: v.notes ?? undefined,
+        isCritical: v.is_critical ?? false,
       };
       entry.isHighRisk = isHighRisk(entry);
       return entry;
     });
-    vitalsHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const latestVital = vitalsHistory[0];
-    const latestAI = (patientData.aiConsultations ||
-      patientData.ai_consultations ||
-      [])[0] as DbAIConsultation | undefined;
+    const latestAI = (patientData.aiConsultations || [])[0] as DbAIConsultation | undefined;
     
     let riskLevel: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
-    const aiRisk = latestAI?.risk_level?.toUpperCase();
-    if (aiRisk === 'HIGH') riskLevel = 'HIGH';
-    else if (aiRisk === 'MEDIUM') riskLevel = 'MEDIUM';
-    else if (aiRisk === 'LOW') riskLevel = 'LOW';
-    else if (latestVital?.isHighRisk == true) riskLevel = 'HIGH';
+    if (latestAI?.risk_level === 'HIGH') riskLevel = 'HIGH';
+    else if (latestAI?.risk_level === 'MEDIUM') riskLevel = 'MEDIUM';
 
     const patient: Patient = {
       id: patientData.id,
       name: patientData.name,
       age: patientData.age || 0,
       gender: patientData.gender || 'Unknown',
+      phone: patientData.phone ?? '',
+      latitude: patientData.latitude ?? null,
+      longitude: patientData.longitude ?? null,
       village: 'Unknown',
       conditions: [],
       riskLevel,
@@ -184,8 +165,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       adherencePercentage: 0,
       adherenceLog: ['none', 'none', 'none', 'none', 'none', 'none', 'none'],
       vitalsHistory,
-      prescriptions: (patientData.prescriptions || []).map((p: DbPrescription) => mapPrescriptionToText(p)).filter(Boolean),
+      prescriptions: (patientData.prescriptions || []).map((p: any) => `${p.medicine_name ?? ''} ${p.dosage ?? ''}`.trim()),
       notes: latestAI?.summary || '',
+      aiSummary: latestAI?.summary || undefined,
     };
 
     set({ currentPatient: patient });
@@ -193,13 +175,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   loadPatientsFromDb: async () => {
     const users = await getUsers();
-    const patientIds = users.map(u => u.id);
-    const [vitals, prescriptions] = await Promise.all([
-      getVitalsForPatients(patientIds),
-      getPrescriptionsForPatients(patientIds),
-    ]);
+    const vitals = await getVitalsForPatients(users.map(u => u.id));
     const vitalsByPatient = new Map<string, VitalParams[]>();
-    const prescriptionsByPatient = new Map<string, string[]>();
 
     vitals.forEach((v) => {
       const systolic = typeof v.systolic_bp === 'number' ? v.systolic_bp : null;
@@ -212,6 +189,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         spo2: v.spo2 ?? 0,
         temp: v.temperature ?? 0,
         hr: v.heart_rate ?? 0,
+        notes: v.notes ?? undefined,
+        isCritical: v.is_critical ?? false,
       };
       entry.isHighRisk = isHighRisk(entry);
 
@@ -223,14 +202,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     for (const [, list] of vitalsByPatient) {
       list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }
-
-    prescriptions.forEach((p) => {
-      const label = mapPrescriptionToText(p);
-      if (!label) return;
-      const list = prescriptionsByPatient.get(p.patient_id) ?? [];
-      list.push(label);
-      prescriptionsByPatient.set(p.patient_id, list);
-    });
 
     const patients: Patient[] = users.map((u) => {
       const history = vitalsByPatient.get(u.id) ?? [];
@@ -245,6 +216,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         name: u.name,
         age: u.age ?? 0,
         gender: u.gender ?? 'Unknown',
+        phone: u.phone ?? '',
+        latitude: u.latitude ?? null,
+        longitude: u.longitude ?? null,
         village: 'Unknown',
         conditions: [],
         riskLevel,
@@ -255,7 +229,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         adherencePercentage: 0,
         adherenceLog: ['none', 'none', 'none', 'none', 'none', 'none', 'none'],
         vitalsHistory: history,
-        prescriptions: prescriptionsByPatient.get(u.id) ?? [],
+        prescriptions: [],
         notes: '',
       };
     });
@@ -264,24 +238,34 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   updatePatientVitals: async (patientId, vitals) => {
-    const currentWorker = get().currentWorker;
-    await recordVitals({
-      patient_id: patientId,
-      recorded_by: currentWorker?.id ?? null,
-      systolic_bp: Number(vitals.bp.split('/')[0]),
-      diastolic_bp: Number(vitals.bp.split('/')[1]),
-      heart_rate: vitals.hr,
-      spo2: vitals.spo2,
-      temperature: vitals.temp,
-      recorded_at: vitals.date,
-      recorded_by: get().currentWorker?.id,
-    });
+    try {
+      console.log('📤 Saving vitals to Supabase...', { patientId, vitals });
+      
+      await recordVitals({
+        patient_id: patientId,
+        systolic_bp: Number(vitals.bp.split('/')[0]),
+        diastolic_bp: Number(vitals.bp.split('/')[1]),
+        heart_rate: vitals.hr,
+        spo2: vitals.spo2,
+        temperature: vitals.temp,
+        recorded_at: vitals.date,
+        // Don't send recorded_by as it's a worker ID, not an admin ID
+        // recorded_by is kept as optional in schema
+        notes: vitals.notes,
+        is_critical: vitals.isCritical,
+      });
 
-    let alertCreated = false;
-    let alertDetails: any = null;
+      console.log('✅ Vitals saved to Supabase successfully');
 
-    // Check thresholds
-    const isEmergency = () => {
+      let alertCreated = false;
+      let alertDetails: any = null;
+
+      // Check thresholds or critical flag
+      const isEmergency = () => {
+        if (vitals.isCritical) {
+          alertDetails = { type: 'CRITICAL FLAG', value: `Critical observation recorded` };
+        return true;
+      }
       const { bp, spo2, temp, hr } = vitals;
       if (bp) {
         const [sys, dia] = bp.split('/').map(Number);
@@ -309,19 +293,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     const newVital: VitalParams = {
       id: Math.random().toString(),
       isHighRisk: emergency,
+      isCritical: vitals.isCritical,
+      notes: vitals.notes,
       ...vitals,
     };
 
     set((state) => {
       const newPatients = state.patients.map((p) => {
         if (p.id === patientId) {
-          return {
-            ...p,
-            vitalsHistory: [newVital, ...p.vitalsHistory],
-            riskLevel: emergency ? 'HIGH' : p.riskLevel,
-            emergencyFlag: emergency ? true : p.emergencyFlag,
-            lastVisited: vitals.date,
-          };
+          p.vitalsHistory = [newVital, ...p.vitalsHistory];
+          if (emergency) {
+            p.riskLevel = 'HIGH';
+            p.emergencyFlag = true;
+          }
+          return p;
         }
         return p;
       });
@@ -343,62 +328,55 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       }
 
-      const currentPatient =
-        state.currentPatient?.id === patientId
-            ? {
-                ...state.currentPatient,
-                vitalsHistory: [newVital, ...state.currentPatient.vitalsHistory],
-                riskLevel: emergency ? 'HIGH' : state.currentPatient.riskLevel,
-                emergencyFlag: emergency ? true : state.currentPatient.emergencyFlag,
-                lastVisited: vitals.date,
-              }
-            : state.currentPatient;
-
-      return { patients: newPatients, alerts: newAlerts, currentPatient };
+      return { patients: newPatients, alerts: newAlerts };
     });
 
     get().addToSyncQueue({ type: 'VITALS_UPDATE', data: { patientId, vitals } });
-  },
+    } catch (error) {
+      console.error('❌ Error saving vitals:', error);
+      
+      // Still update local state even if DB save fails
+      let alertDetails: any = null;
+      const isEmergency = () => {
+        if (vitals.isCritical) return true;
+        const { bp, spo2, temp, hr } = vitals;
+        if (bp) {
+          const [sys, dia] = bp.split('/').map(Number);
+          if (sys > THRESHOLDS.BP_SYSTOLIC_MAX || dia > THRESHOLDS.BP_DIASTOLIC_MAX) return true;
+        }
+        if (spo2 && spo2 < THRESHOLDS.SPO2_MIN) return true;
+        if (temp && temp > THRESHOLDS.TEMP_MAX) return true;
+        if (hr && (hr > THRESHOLDS.HR_MAX || hr < THRESHOLDS.HR_MIN)) return true;
+        return false;
+      };
 
-  addPatientPrescription: async (patientId, payload) => {
-    const currentWorker = get().currentWorker;
-    const created = await addPrescription({
-      patient_id: patientId,
-      prescribed_by: currentWorker?.id ?? null,
-      medicine_name: payload.medication,
-      dosage: payload.dosage ?? null,
-      timing: payload.timing ?? null,
-      duration: payload.duration ?? null,
-      meal_timing: payload.mealTiming ?? null,
-      notes: payload.notes ?? null,
-      start_date: new Date().toISOString().substring(0, 10),
-    });
+      const emergency = isEmergency();
+      const newVital: VitalParams = {
+        id: Math.random().toString(),
+        isHighRisk: emergency,
+        isCritical: vitals.isCritical,
+        notes: vitals.notes,
+        ...vitals,
+      };
 
-    const label = mapPrescriptionToText(created);
-
-    set((state) => {
-      const patients = state.patients.map((patient) => {
-        if (patient.id !== patientId) return patient;
-        return {
-          ...patient,
-          prescriptions: label.length === 0
-              ? patient.prescriptions
-              : [label, ...patient.prescriptions],
-        };
+      set((state) => {
+        const newPatients = state.patients.map((p) => {
+          if (p.id === patientId) {
+            p.vitalsHistory = [newVital, ...p.vitalsHistory];
+            if (emergency) {
+              p.riskLevel = 'HIGH';
+              p.emergencyFlag = true;
+            }
+            return p;
+          }
+          return p;
+        });
+        return { patients: newPatients };
       });
 
-      const currentPatient =
-          state.currentPatient?.id === patientId
-              ? {
-                  ...state.currentPatient,
-                  prescriptions: label.length === 0
-                      ? state.currentPatient.prescriptions
-                      : [label, ...state.currentPatient.prescriptions],
-                }
-              : state.currentPatient;
-
-      return { patients, currentPatient };
-    });
+      get().addToSyncQueue({ type: 'VITALS_UPDATE', data: { patientId, vitals } });
+      throw error;
+    }
   },
 
   addToSyncQueue: (item) => {

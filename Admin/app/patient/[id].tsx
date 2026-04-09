@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,19 +8,41 @@ import { COLORS } from '../../constants/colors';
 import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
 import { RiskIndicator } from '../../components/patient/RiskIndicator';
-
-const { width } = Dimensions.get('window');
+import { useEffect, useState } from 'react';
+import { getPatientLiveLocation, type PatientLiveLocation } from '@/services/supabase.service';
 
 export default function PatientDetail() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const currentPatient = useAppStore(state => state.currentPatient);
   const patients = useAppStore(state => state.patients);
+  const [liveLocation, setLiveLocation] = useState<PatientLiveLocation | null>(null);
   
-  // Prefer matching currentPatient (from QR scan) when it matches this route id.
-  const patient = currentPatient?.id === id
-    ? currentPatient
-    : patients.find(p => p.id === id);
+  // First try to use currentPatient (from QR scan), then fallback to the patients list
+  const patient = currentPatient || patients.find(p => p.id === id);
+  const patientId = typeof id === 'string' ? id : patient?.id;
+
+  useEffect(() => {
+    if (!patientId) return;
+
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const fetchLocation = async () => {
+      try {
+        const latest = await getPatientLiveLocation(patientId);
+        setLiveLocation(latest);
+      } catch {
+        // Non-blocking: page should still render even if location fetch fails
+      }
+    };
+
+    fetchLocation();
+    timer = setInterval(fetchLocation, 20000);
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [patientId]);
 
   if (!patient) return null;
 
@@ -32,6 +54,39 @@ export default function PatientDetail() {
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  };
+
+  const handleCallPatient = async () => {
+    if (!patient.phone) {
+      Alert.alert('Phone unavailable', 'No phone number is available for this patient.');
+      return;
+    }
+
+    const dialUrl = `tel:${patient.phone}`;
+    const canDial = await Linking.canOpenURL(dialUrl);
+    if (!canDial) {
+      Alert.alert('Unable to call', 'Calling is not supported on this device.');
+      return;
+    }
+    await Linking.openURL(dialUrl);
+  };
+
+  const handleTrackPatient = async () => {
+    const latitude = liveLocation?.latitude ?? patient.latitude ?? null;
+    const longitude = liveLocation?.longitude ?? patient.longitude ?? null;
+
+    if (latitude === null || longitude === null) {
+      Alert.alert('Location unavailable', 'Live patient location has not been shared yet.');
+      return;
+    }
+
+    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+    const canOpen = await Linking.canOpenURL(mapsUrl);
+    if (!canOpen) {
+      Alert.alert('Unable to open map', 'Maps is not supported on this device.');
+      return;
+    }
+    await Linking.openURL(mapsUrl);
   };
 
   return (
@@ -98,6 +153,41 @@ export default function PatientDetail() {
           </Card>
         </View>
 
+        {/* AI Clinical Summary */}
+        {patient.aiSummary && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>AI Clinical Summary</Text>
+            <Card style={styles.aiSummaryCard}>
+              <View style={styles.aiHeader}>
+                <Ionicons name="sparkles" size={20} color={COLORS.PRIMARY_GREEN} />
+                <Text style={styles.aiTitle}>Latest Assessment</Text>
+              </View>
+              <Text style={styles.aiText}>{patient.aiSummary}</Text>
+              <Text style={styles.aiFooter}>Assessment generated from patient vitals and medical history</Text>
+            </Card>
+          </View>
+        )}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Live Location</Text>
+          <Card style={styles.locationCard}>
+            <View style={styles.locationRow}>
+              <Ionicons name="location" size={20} color={COLORS.PRIMARY_GREEN} />
+              <View style={styles.locationMeta}>
+                <Text style={styles.locationText}>
+                  {liveLocation?.latitude ?? patient.latitude ?? '--'}, {liveLocation?.longitude ?? patient.longitude ?? '--'}
+                </Text>
+                <Text style={styles.locationSubtext}>
+                  Updated {liveLocation?.updated_at ? new Date(liveLocation.updated_at).toLocaleTimeString() : 'just now'}
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.trackBtn} onPress={handleTrackPatient}>
+                <Text style={styles.trackBtnText}>Track</Text>
+              </TouchableOpacity>
+            </View>
+          </Card>
+        </View>
+
         {/* Adherence */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>7-Day Adherence</Text>
@@ -123,18 +213,16 @@ export default function PatientDetail() {
         {/* Vitals History */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Vitals History</Text>
-          {patient.vitalsHistory.length === 0 && (
-            <Card style={styles.vitalHistoryItem}>
-              <Text style={styles.emptySectionText}>No vitals recorded yet.</Text>
-            </Card>
-          )}
-          {patient.vitalsHistory.map((v) => (
+          {patient.vitalsHistory.map((v, i) => (
             <Card key={v.id} style={styles.vitalHistoryItem}>
               <View style={styles.vitalHeader}>
                 <Text style={styles.vitalDate}>
                   {new Date(v.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </Text>
-                {v.isHighRisk && <Badge label="HIGH" type="HIGH" />}
+                <View style={styles.vitalBadges}>
+                  {v.isHighRisk && <Badge label="HIGH" type="HIGH" />}
+                  {v.isCritical && <Badge label="CRITICAL" type="HIGH" />}
+                </View>
               </View>
               <View style={styles.vitalsGrid}>
                 <View style={styles.vitalStat}>
@@ -154,20 +242,12 @@ export default function PatientDetail() {
                   <Text style={styles.vitalValue}>{v.hr} bpm</Text>
                 </View>
               </View>
-            </Card>
-          ))}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Prescriptions</Text>
-          {patient.prescriptions.length === 0 && (
-            <Card style={styles.vitalHistoryItem}>
-              <Text style={styles.emptySectionText}>No prescriptions added yet.</Text>
-            </Card>
-          )}
-          {patient.prescriptions.map((prescription, index) => (
-            <Card key={`${prescription}-${index}`} style={styles.vitalHistoryItem}>
-              <Text style={styles.vitalValue}>{prescription}</Text>
+              {v.notes && (
+                <View style={styles.vitalNotes}>
+                  <Text style={styles.vitalNotesLabel}>Notes:</Text>
+                  <Text style={styles.vitalNotesText}>{v.notes}</Text>
+                </View>
+              )}
             </Card>
           ))}
         </View>
@@ -185,9 +265,10 @@ export default function PatientDetail() {
          </TouchableOpacity>
          <TouchableOpacity 
            style={[styles.actionBtn, styles.secondaryBtn]}
-           onPress={() => router.push({ pathname: '/patient/prescription', params: { id: patient.id } })}
+           onPress={handleCallPatient}
          >
-           <Text style={styles.secondaryBtnText}>Add Prescription</Text>
+           <Ionicons name="call" size={18} color={COLORS.PRIMARY_GREEN} />
+           <Text style={styles.secondaryBtnText}>Call Patient</Text>
          </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -354,6 +435,69 @@ const styles = StyleSheet.create({
     color: COLORS.TEXT_SECONDARY,
     marginTop: 12,
   },
+  aiSummaryCard: {
+    padding: 16,
+    backgroundColor: COLORS.GREEN_LIGHT,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.PRIMARY_GREEN,
+  },
+  aiHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  aiTitle: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 13,
+    color: COLORS.PRIMARY_GREEN,
+  },
+  aiText: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 12,
+    color: COLORS.TEXT_PRIMARY,
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  aiFooter: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 10,
+    color: COLORS.TEXT_SECONDARY,
+    fontStyle: 'italic',
+  },
+  locationCard: {
+    padding: 14,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  locationMeta: {
+    flex: 1,
+  },
+  locationText: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 13,
+    color: COLORS.TEXT_PRIMARY,
+  },
+  locationSubtext: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 11,
+    color: COLORS.TEXT_SECONDARY,
+    marginTop: 2,
+  },
+  trackBtn: {
+    backgroundColor: COLORS.PRIMARY_GREEN,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  trackBtnText: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 12,
+    color: COLORS.WHITE,
+  },
   adherenceCard: {
     padding: 16,
   },
@@ -408,6 +552,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.TEXT_PRIMARY,
   },
+  vitalBadges: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   vitalsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -426,10 +574,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.TEXT_PRIMARY,
   },
-  emptySectionText: {
-    fontFamily: 'Poppins_500Medium',
-    fontSize: 13,
+  vitalNotes: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.BORDER,
+  },
+  vitalNotesLabel: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 11,
     color: COLORS.TEXT_SECONDARY,
+    marginBottom: 4,
+  },
+  vitalNotesText: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 12,
+    color: COLORS.TEXT_PRIMARY,
+    lineHeight: 16,
   },
   bottomActions: {
     position: 'absolute',

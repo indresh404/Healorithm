@@ -1,19 +1,22 @@
--- Run this SQL on Supabase to create the RPC function
--- This fetches complete patient data from a single QR code lookup
+-- Run this SQL in Supabase SQL Editor.
+-- Creates/updates RPC used by Admin QR scanner.
 
-CREATE OR REPLACE FUNCTION get_patient_full_data(p_qr_code TEXT)
-RETURNS JSON AS $$
+DROP FUNCTION IF EXISTS public.get_patient_full_data(TEXT);
+
+CREATE OR REPLACE FUNCTION public.get_patient_full_data(p_qr_code TEXT)
+RETURNS JSON
+LANGUAGE plpgsql
+STABLE
+AS $$
 DECLARE
   v_user_id UUID;
   v_result JSON;
 BEGIN
-  -- Step 1: Find user by QR code
   SELECT id INTO v_user_id
   FROM public.users
   WHERE qr_code = p_qr_code
   LIMIT 1;
 
-  -- If user not found, return error
   IF v_user_id IS NULL THEN
     RETURN json_build_object(
       'success', false,
@@ -21,112 +24,127 @@ BEGIN
     );
   END IF;
 
-  -- Step 2: Build complete patient data object
   SELECT json_build_object(
     'success', true,
     'user', (
-      SELECT json_build_object(
-        'id', id,
-        'name', name,
-        'age', age,
-        'gender', gender,
-        'phone', phone,
-        'preferred_language', preferred_language,
-        'latitude', latitude,
-        'longitude', longitude,
-        'qr_code', qr_code,
-        'created_at', created_at,
-        'updated_at', updated_at
-      )
-      FROM public.users
-      WHERE id = v_user_id
+      SELECT row_to_json(u)
+      FROM (
+        SELECT
+          id,
+          name,
+          age,
+          gender,
+          phone,
+          preferred_language,
+          latitude,
+          longitude,
+          qr_code,
+          created_at,
+          updated_at
+        FROM public.users
+        WHERE id = v_user_id
+      ) u
     ),
     'vitals', COALESCE(
       (
-        SELECT JSON_AGG(
-          json_build_object(
-            'id', id,
-            'patient_id', patient_id,
-            'recorded_by', recorded_by,
-            'systolic_bp', systolic_bp,
-            'diastolic_bp', diastolic_bp,
-            'heart_rate', heart_rate,
-            'spo2', spo2,
-            'temperature', temperature,
-            'notes', notes,
-            'is_critical', is_critical,
-            'recorded_at', recorded_at,
-            'created_at', created_at
-          )
-        )
-        FROM public.vitals
-        WHERE patient_id = v_user_id
-        ORDER BY recorded_at DESC
-        LIMIT 50
+        SELECT json_agg(v)
+        FROM (
+          SELECT
+            id,
+            patient_id,
+            recorded_by,
+            systolic_bp,
+            diastolic_bp,
+            heart_rate,
+            spo2,
+            temperature,
+            notes,
+            is_critical,
+            recorded_at,
+            created_at,
+            updated_at
+          FROM public.vitals
+          WHERE patient_id = v_user_id
+          ORDER BY recorded_at DESC
+          LIMIT 50
+        ) v
       ),
-      '[]'::JSON
+      '[]'::json
     ),
     'medical_records', COALESCE(
       (
-        SELECT JSON_AGG(
-          json_build_object(
-            'id', id,
-            'patient_id', patient_id,
-            'type', type,
-            'title', title,
-            'description', description,
-            'file_url', file_url,
-            'created_at', created_at
-          )
-        )
-        FROM public.medical_records
-        WHERE patient_id = v_user_id
-        ORDER BY created_at DESC
-        LIMIT 100
+        SELECT json_agg(m)
+        FROM (
+          SELECT
+            id,
+            patient_id,
+            recorded_by,
+            diagnosis,
+            description,
+            vaccine_name,
+            vaccine_date,
+            visit_type,
+            visit_date,
+            created_at,
+            updated_at
+          FROM public.medical_records
+          WHERE patient_id = v_user_id
+          ORDER BY created_at DESC
+          LIMIT 100
+        ) m
       ),
-      '[]'::JSON
+      '[]'::json
     ),
     'ai_consultations', COALESCE(
       (
-        SELECT JSON_AGG(
-          json_build_object(
-            'id', id,
-            'patient_id', patient_id,
-            'summary', summary,
-            'risk_level', risk_level,
-            'recommendations', recommendations,
-            'created_at', created_at
-          )
-        )
-        FROM public.ai_consultations
-        WHERE patient_id = v_user_id
-        ORDER BY created_at DESC
-        LIMIT 50
+        SELECT json_agg(a)
+        FROM (
+          SELECT
+            id,
+            patient_id,
+            summary,
+            symptoms,
+            risk_level,
+            recommendation,
+            created_at
+          FROM public.ai_consultations
+          WHERE patient_id = v_user_id
+          ORDER BY created_at DESC
+          LIMIT 50
+        ) a
       ),
-      '[]'::JSON
+      '[]'::json
     ),
     'prescriptions', COALESCE(
       (
-        SELECT JSON_AGG(
-          json_build_object(
-            'id', id,
-            'patient_id', patient_id,
-            'medication', medication,
-            'dosage', dosage,
-            'frequency', frequency,
-            'duration', duration,
-            'created_at', created_at
-          )
-        )
-        FROM public.prescriptions
-        WHERE patient_id = v_user_id
-        ORDER BY created_at DESC
-        LIMIT 50
+        SELECT json_agg(p)
+        FROM (
+          SELECT
+            id,
+            patient_id,
+            medical_record_id,
+            prescribed_by,
+            medicine_name,
+            dosage,
+            timing,
+            duration,
+            meal_timing,
+            notes,
+            start_date,
+            end_date,
+            is_active,
+            created_at,
+            updated_at
+          FROM public.prescriptions
+          WHERE patient_id = v_user_id
+          ORDER BY created_at DESC
+          LIMIT 50
+        ) p
       ),
-      '[]'::JSON
+      '[]'::json
     )
   ) INTO v_result;
 
   RETURN v_result;
 END;
-$$ LANGUAGE plpgsql STABLE;
+$$;
