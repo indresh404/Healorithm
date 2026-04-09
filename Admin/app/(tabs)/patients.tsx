@@ -74,34 +74,39 @@ export default function Patients() {
   };
 
   const AIPriorityCard = ({ item }: { item: PrioritizedPatient }) => (
-    <View style={[styles.aiCard, item.emergency_flag && styles.aiCardEmergency]}>
-      <View style={[styles.aiOrderBadge, { backgroundColor: riskColor(item.risk_level) }]}>
-        <Text style={styles.aiOrderText}>#{item.visit_order}</Text>
-      </View>
-      <View style={styles.aiCardBody}>
-        <View style={styles.aiCardRow}>
-          <Text style={styles.aiCardName} numberOfLines={1}>{item.name}</Text>
-          {item.emergency_flag && (
-            <View style={styles.emergencyDot}>
-              <Text style={styles.emergencyDotText}>🚨</Text>
-            </View>
-          )}
+    <TouchableOpacity 
+      onPress={() => router.push(`/patient/${item.patient_id}`)}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.aiCard, item.emergency_flag && styles.aiCardEmergency]}>
+        <View style={[styles.aiOrderBadge, { backgroundColor: riskColor(item.risk_level) }]}>
+          <Text style={styles.aiOrderText}>#{item.visit_order}</Text>
         </View>
-        <Text style={styles.aiCardReason} numberOfLines={2}>{item.reason}</Text>
-        <View style={styles.aiCardStats}>
-          {item.days_overdue > 0 && item.days_overdue < 999 && (
-            <Text style={styles.aiStat}>⏱ {item.days_overdue}d overdue</Text>
-          )}
-          {item.days_overdue >= 999 && (
-            <Text style={styles.aiStat}>⏱ First visit</Text>
-          )}
-          <Text style={styles.aiStat}>💊 {item.adherence_rate.toFixed(0)}%</Text>
-          <Text style={[styles.aiStat, { color: riskColor(item.risk_level), fontWeight: '700' }]}>
-            Score {item.priority_score.toFixed(0)}
-          </Text>
+        <View style={styles.aiCardBody}>
+          <View style={styles.aiCardRow}>
+            <Text style={styles.aiCardName} numberOfLines={1}>{item.name}</Text>
+            {item.emergency_flag && (
+              <View style={styles.emergencyDot}>
+                <Text style={styles.emergencyDotText}>🚨</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.aiCardReason} numberOfLines={2}>{item.reason}</Text>
+          <View style={styles.aiCardStats}>
+            {item.days_overdue > 0 && item.days_overdue < 999 && (
+              <Text style={styles.aiStat}>⏱ {item.days_overdue}d overdue</Text>
+            )}
+            {item.days_overdue >= 999 && (
+              <Text style={styles.aiStat}>⏱ First visit</Text>
+            )}
+            <Text style={styles.aiStat}>💊 {item.adherence_rate.toFixed(0)}%</Text>
+            <Text style={[styles.aiStat, { color: riskColor(item.risk_level), fontWeight: '700' }]}>
+              Score {item.priority_score.toFixed(0)}
+            </Text>
+          </View>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
