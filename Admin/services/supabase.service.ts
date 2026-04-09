@@ -212,6 +212,7 @@ export const recordVitals = async (input: {
   temperature: number;
   notes?: string | null;
   recorded_at?: string;
+  recorded_by?: string;
 }) => {
   const { error } = await supabase
     .from("vitals")
@@ -225,6 +226,7 @@ export const recordVitals = async (input: {
       temperature: input.temperature,
       notes: input.notes ?? null,
       recorded_at: input.recorded_at ?? new Date().toISOString(),
+      ...(input.recorded_by ? { recorded_by: input.recorded_by } : {}),
     });
 
   if (error) throw error;

@@ -46,7 +46,8 @@ export default function ScanScreen() {
   const [scanned, setScanned] = useState(false);
   const [torch, setTorch] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const setCurrentPatient = useAppStore((state) => state.setCurrentPatient);
+  const setCurrentPatient = useAppStore(state => state.setCurrentPatient);
+  const backendOnline = useAppStore(state => state.backendOnline);
 
   useEffect(() => {
     const getCameraPermissions = async () => {
@@ -69,19 +70,10 @@ export default function ScanScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
-      const normalizedQrCode = extractQRCodeValue(data);
-      const userId = extractUserIdFromPayload(data);
       let patientData: PatientFullData;
-
-      if (normalizedQrCode) {
-        patientData = await getPatientByQRCode(normalizedQrCode);
-        if (!patientData.success) {
-          patientData = await getPatientByQRCodeFallback(normalizedQrCode);
-        }
-      } else if (userId) {
-        patientData = await getPatientByUserIdFallback(userId);
-      } else {
-        patientData = { success: false, error: 'Unsupported QR format' };
+      patientData = await getPatientByQRCode(data);
+      if (!patientData.success) {
+        patientData = await getPatientByQRCodeFallback(data);
       }
 
       if (!patientData.success || !patientData.user) {
@@ -89,8 +81,8 @@ export default function ScanScreen() {
         setScanned(false);
         Alert.alert(
           'Patient Not Found',
-          `The QR code does not match any registered patient.\n\nQR: ${data.substring(0, 40)}${data.length > 40 ? '...' : ''}`,
-          [{ text: 'Scan Again' }]
+          `The QR code doesn't match any registered patient.\n\nQR: ${data.substring(0, 20)}...`,
+          [{ text: 'Scan Again', onPress: () => {} }]
         );
         return;
       }
@@ -112,14 +104,10 @@ export default function ScanScreen() {
       });
 
       setIsLoading(false);
-
       Alert.alert(
-        'Scan Successful',
+        'Scan Successful ✅',
         `Patient: ${patientData.user.name}\nRisk Level: ${patientData.ai_consultations?.[0]?.risk_level || 'N/A'}`,
-        [
-          { text: 'View Profile', onPress: () => router.push(`/patient/${patientData.user!.id}`) },
-          { text: 'Scan Next', onPress: () => setScanned(false) },
-        ]
+        [{ text: 'View Profile', onPress: () => router.push(`/patient/${patientData.user!.id}`) }]
       );
     } catch (error) {
       setIsLoading(false);
@@ -127,7 +115,7 @@ export default function ScanScreen() {
       Alert.alert(
         'Scan Error',
         `Failed to fetch patient data: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        [{ text: 'Retry' }]
+        [{ text: 'Retry', onPress: () => {} }]
       );
     }
   };
@@ -163,7 +151,12 @@ export default function ScanScreen() {
         <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={COLORS.WHITE} />
         </TouchableOpacity>
-        <Text style={styles.topTitle}>Scan Patient QR</Text>
+        <View>
+          <Text style={styles.topTitle}>Scan Patient QR</Text>
+          <Text style={styles.backendStatus}>
+            {backendOnline ? '🟢 Backend online' : '🔴 Offline mode'}
+          </Text>
+        </View>
         <TouchableOpacity style={styles.iconBtn} onPress={() => setTorch(!torch)}>
           <Ionicons name={torch ? 'flash' : 'flash-off'} size={24} color={COLORS.WHITE} />
         </TouchableOpacity>
@@ -176,28 +169,22 @@ export default function ScanScreen() {
         </View>
       )}
 
-      {!isLoading && (
-        <View style={[styles.bottomSheet, { bottom: insets.bottom + 100 }]}>
+      <View style={[styles.bottomSheet, { bottom: insets.bottom + 100 }]}>
           <View style={styles.pulseContainer}>
             <View style={styles.pulseDot} />
             <Text style={styles.bottomText}>Looking for QR code...</Text>
           </View>
           <TouchableOpacity
             style={styles.manualBtn}
-            onPress={() =>
-              handleBarCodeScanned({
-                data: 'QR_' + Math.random().toString(36).substring(7).toUpperCase(),
-              })
-            }
+            onPress={() => handleBarCodeScanned({ data: 'QR-TEST-001' })}
           >
-            <Text style={styles.manualText}>Test Scan (Mock)</Text>
+            <Text style={styles.manualText}>Test Scan (Demo)</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.rescanBtn} onPress={() => setScanned(false)}>
             <Text style={styles.rescanText}>Scan Again</Text>
           </TouchableOpacity>
           <Text style={styles.subText}>Or scan a valid patient QR code</Text>
-        </View>
-      )}
+      </View>
     </View>
   );
 }
@@ -298,5 +285,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_400Regular',
     fontSize: 12,
     color: 'rgba(255,255,255,0.6)',
+  },
+  backendStatus: {
+    fontFamily: 'Poppins_500Medium',
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
   },
 });
