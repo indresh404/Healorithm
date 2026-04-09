@@ -150,6 +150,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       name: patientData.name,
       age: patientData.age || 0,
       gender: patientData.gender || 'Unknown',
+      phone: patientData.phone ?? '',
+      latitude: patientData.latitude ?? null,
+      longitude: patientData.longitude ?? null,
       village: 'Unknown',
       conditions: [],
       riskLevel,
@@ -160,7 +163,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       adherencePercentage: 0,
       adherenceLog: ['none', 'none', 'none', 'none', 'none', 'none', 'none'],
       vitalsHistory,
-      prescriptions: (patientData.prescriptions || []).map((p: any) => `${p.medication} ${p.dosage}`),
+      prescriptions: (patientData.prescriptions || []).map((p: any) => `${p.medicine_name ?? ''} ${p.dosage ?? ''}`.trim()),
       notes: latestAI?.summary || '',
     };
 
@@ -208,6 +211,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         name: u.name,
         age: u.age ?? 0,
         gender: u.gender ?? 'Unknown',
+        phone: u.phone ?? '',
+        latitude: u.latitude ?? null,
+        longitude: u.longitude ?? null,
         village: 'Unknown',
         conditions: [],
         riskLevel,

@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,17 +8,41 @@ import { COLORS } from '../../constants/colors';
 import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
 import { RiskIndicator } from '../../components/patient/RiskIndicator';
-
-const { width } = Dimensions.get('window');
+import { useEffect, useState } from 'react';
+import { getPatientLiveLocation, type PatientLiveLocation } from '@/services/supabase.service';
 
 export default function PatientDetail() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const currentPatient = useAppStore(state => state.currentPatient);
   const patients = useAppStore(state => state.patients);
+  const [liveLocation, setLiveLocation] = useState<PatientLiveLocation | null>(null);
   
   // First try to use currentPatient (from QR scan), then fallback to the patients list
   const patient = currentPatient || patients.find(p => p.id === id);
+  const patientId = typeof id === 'string' ? id : patient?.id;
+
+  useEffect(() => {
+    if (!patientId) return;
+
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const fetchLocation = async () => {
+      try {
+        const latest = await getPatientLiveLocation(patientId);
+        setLiveLocation(latest);
+      } catch {
+        // Non-blocking: page should still render even if location fetch fails
+      }
+    };
+
+    fetchLocation();
+    timer = setInterval(fetchLocation, 20000);
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [patientId]);
 
   if (!patient) return null;
 
@@ -30,6 +54,39 @@ export default function PatientDetail() {
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  };
+
+  const handleCallPatient = async () => {
+    if (!patient.phone) {
+      Alert.alert('Phone unavailable', 'No phone number is available for this patient.');
+      return;
+    }
+
+    const dialUrl = `tel:${patient.phone}`;
+    const canDial = await Linking.canOpenURL(dialUrl);
+    if (!canDial) {
+      Alert.alert('Unable to call', 'Calling is not supported on this device.');
+      return;
+    }
+    await Linking.openURL(dialUrl);
+  };
+
+  const handleTrackPatient = async () => {
+    const latitude = liveLocation?.latitude ?? patient.latitude ?? null;
+    const longitude = liveLocation?.longitude ?? patient.longitude ?? null;
+
+    if (latitude === null || longitude === null) {
+      Alert.alert('Location unavailable', 'Live patient location has not been shared yet.');
+      return;
+    }
+
+    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+    const canOpen = await Linking.canOpenURL(mapsUrl);
+    if (!canOpen) {
+      Alert.alert('Unable to open map', 'Maps is not supported on this device.');
+      return;
+    }
+    await Linking.openURL(mapsUrl);
   };
 
   return (
@@ -93,6 +150,26 @@ export default function PatientDetail() {
             <Text style={styles.riskDesc}>
               {patient.riskLevel === 'HIGH' ? '🚨 Immediate intervention required based on recent vitals.' : '✅ Vitals are currently within stable range.'}
             </Text>
+          </Card>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Live Location</Text>
+          <Card style={styles.locationCard}>
+            <View style={styles.locationRow}>
+              <Ionicons name="location" size={20} color={COLORS.PRIMARY_GREEN} />
+              <View style={styles.locationMeta}>
+                <Text style={styles.locationText}>
+                  {liveLocation?.latitude ?? patient.latitude ?? '--'}, {liveLocation?.longitude ?? patient.longitude ?? '--'}
+                </Text>
+                <Text style={styles.locationSubtext}>
+                  Updated {liveLocation?.updated_at ? new Date(liveLocation.updated_at).toLocaleTimeString() : 'just now'}
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.trackBtn} onPress={handleTrackPatient}>
+                <Text style={styles.trackBtnText}>Track</Text>
+              </TouchableOpacity>
+            </View>
           </Card>
         </View>
 
@@ -164,9 +241,10 @@ export default function PatientDetail() {
          </TouchableOpacity>
          <TouchableOpacity 
            style={[styles.actionBtn, styles.secondaryBtn]}
-           onPress={() => router.push({ pathname: '/patient/prescription', params: { id: patient.id } })}
+           onPress={handleCallPatient}
          >
-           <Text style={styles.secondaryBtnText}>Add Prescription</Text>
+           <Ionicons name="call" size={18} color={COLORS.PRIMARY_GREEN} />
+           <Text style={styles.secondaryBtnText}>Call Patient</Text>
          </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -332,6 +410,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.TEXT_SECONDARY,
     marginTop: 12,
+  },
+  locationCard: {
+    padding: 14,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  locationMeta: {
+    flex: 1,
+  },
+  locationText: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 13,
+    color: COLORS.TEXT_PRIMARY,
+  },
+  locationSubtext: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 11,
+    color: COLORS.TEXT_SECONDARY,
+    marginTop: 2,
+  },
+  trackBtn: {
+    backgroundColor: COLORS.PRIMARY_GREEN,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  trackBtnText: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 12,
+    color: COLORS.WHITE,
   },
   adherenceCard: {
     padding: 16,

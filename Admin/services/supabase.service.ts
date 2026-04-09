@@ -17,11 +17,11 @@ export interface DbUser {
 
 export interface DbAdmin {
   id: string;
-  name: string | null;
-  password: string | null;
-  role: string | null;
+  name: string;
+  password: string;
+  role: string;
   created_at: string;
-  phone: string | null;
+  phone: string;
 }
 
 export interface DbVital {
@@ -55,18 +55,24 @@ export interface DbAIConsultation {
   patient_id: string;
   summary: string | null;
   risk_level: string | null;
-  recommendations: string | null;
+  recommendation: string | null;
   created_at: string;
 }
 
 export interface DbPrescription {
   id: string;
   patient_id: string;
-  medication: string | null;
+  medicine_name: string | null;
   dosage: string | null;
-  frequency: string | null;
+  timing: string | null;
   duration: string | null;
   created_at: string;
+}
+
+export interface PatientLiveLocation {
+  latitude: number | null;
+  longitude: number | null;
+  updated_at: string | null;
 }
 
 export interface PatientFullData {
@@ -99,14 +105,23 @@ export const loginAdminByPhone = async (phones: string[], password: string) => {
   if (candidates.length === 0) return null;
 
   const { data, error } = await supabase
-    .from("admins")
-    .select("*")
-    .in("phone", candidates)
+    .from("worker")
+    .select("id, name, password, created_at, phone_no")
+    .in("phone_no", candidates)
     .eq("password", password)
     .maybeSingle();
 
   if (error) throw error;
-  return data as DbAdmin | null;
+  if (!data) return null;
+
+  return {
+    id: data.id as string,
+    name: (data.name as string) ?? "Worker",
+    password: (data.password as string) ?? "",
+    role: "worker",
+    created_at: data.created_at as string,
+    phone: (data.phone_no as string) ?? "",
+  } as DbAdmin;
 };
 
 export const getUsers = async () => {
@@ -166,7 +181,15 @@ export const getPatientByQRCode = async (qrCode: string): Promise<PatientFullDat
       p_qr_code: qrCode,
     });
 
-    if (error) throw error;
+    if (error) {
+      const missingRpc =
+        (error as { code?: string }).code === "PGRST202" ||
+        (error as { message?: string }).message?.includes("get_patient_full_data");
+      if (missingRpc) {
+        return await getPatientByQRCodeFallback(qrCode);
+      }
+      throw error;
+    }
     if (!data) {
       return {
         success: false,
@@ -249,4 +272,23 @@ export const getPatientByQRCodeFallback = async (
       error: error instanceof Error ? error.message : "Failed to fetch patient data",
     };
   }
+};
+
+export const getPatientLiveLocation = async (
+  patientId: string
+): Promise<PatientLiveLocation | null> => {
+  const { data, error } = await supabase
+    .from("users")
+    .select("latitude, longitude, updated_at")
+    .eq("id", patientId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  return {
+    latitude: (data.latitude as number | null) ?? null,
+    longitude: (data.longitude as number | null) ?? null,
+    updated_at: (data.updated_at as string | null) ?? null,
+  };
 };

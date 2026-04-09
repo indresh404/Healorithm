@@ -23,7 +23,7 @@ TABLE_VITALS             = "vitals"           # New — vitals recorded by field
 TABLE_PRESCRIPTIONS      = "prescriptions"    # New — prescriptions written by workers
 TABLE_VISIT_RECORDS      = "visit_records"    # New — worker visit logs
 TABLE_WORKER_ASSIGNMENTS = "worker_assignments" # New — worker ↔ patient mapping
-TABLE_ADMINS             = "admins"           # New — ASHA worker login credentials
+TABLE_WORKERS            = "worker"           # New — ASHA worker login credentials
 
 # ─── Vital Threshold Definitions ─────────────────────────────────────────────
 # If any reading crosses these limits, the patient is flagged as an emergency

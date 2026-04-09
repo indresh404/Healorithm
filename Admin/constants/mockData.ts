@@ -13,6 +13,9 @@ export interface Patient {
   name: string;
   age: number;
   gender: string;
+  phone?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   village: string;
   conditions: string[];
   riskLevel: 'HIGH' | 'MEDIUM' | 'LOW';

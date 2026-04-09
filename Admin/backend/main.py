@@ -105,17 +105,17 @@ class _LoginRequest(_BaseModel):
 
 @app.post("/api/admin/auth/login", tags=["Auth"])
 def admin_login(body: _LoginRequest):
-    admin = db.fetch_admin_by_phone(body.phone)
-    if not admin or admin.get("password") != body.password:
+    worker = db.fetch_worker_by_phone(body.phone)
+    if not worker or worker.get("password") != body.password:
         from fastapi import HTTPException
         raise HTTPException(status_code=401, detail="Invalid phone or password")
     return {
         "success": True,
         "worker": {
-            "id":    admin["id"],
-            "name":  admin.get("name") or "Admin",
-            "phone": admin.get("phone") or body.phone,
-            "role":  admin.get("role") or "worker",
+            "id":    worker["id"],
+            "name":  worker.get("name") or "Worker",
+            "phone": worker.get("phone_no") or body.phone,
+            "role":  "worker",
         }
     }
 

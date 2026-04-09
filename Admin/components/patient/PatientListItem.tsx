@@ -9,9 +9,10 @@ import { Card } from '../ui/Card';
 interface Props {
   patient: Patient;
   onPress: () => void;
+  onCall?: () => void;
 }
 
-export function PatientListItem({ patient, onPress }: Props) {
+export function PatientListItem({ patient, onPress, onCall }: Props) {
   const scale = useSharedValue(1);
 
   const getRiskColor = () => {
@@ -74,6 +75,16 @@ export function PatientListItem({ patient, onPress }: Props) {
                 </Text>
               </View>
             </View>
+            <TouchableOpacity
+              onPress={(event) => {
+                event.stopPropagation?.();
+                onCall?.();
+              }}
+              disabled={!patient.phone || !onCall}
+              style={[styles.callBtn, (!patient.phone || !onCall) && styles.callBtnDisabled]}
+            >
+              <Ionicons name="call" size={16} color={COLORS.WHITE} />
+            </TouchableOpacity>
             <Ionicons name="chevron-forward" size={20} color={COLORS.BORDER} style={{ marginLeft: 8 }} />
           </View>
         </Card>
@@ -145,5 +156,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_400Regular',
     fontSize: 10,
     color: COLORS.TEXT_SECONDARY,
+  },
+  callBtn: {
+    marginLeft: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: COLORS.PRIMARY_GREEN,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  callBtnDisabled: {
+    backgroundColor: COLORS.BORDER,
   },
 });
