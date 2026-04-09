@@ -43,30 +43,43 @@ export interface DbVital {
 export interface DbMedicalRecord {
   id: string;
   patient_id: string;
-  type: string | null;
-  title: string | null;
+  recorded_by: string | null;
+  diagnosis: string | null;
   description: string | null;
-  file_url: string | null;
+  vaccine_name: string | null;
+  vaccine_date: string | null;
+  visit_type: string | null;
+  visit_date: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface DbAIConsultation {
   id: string;
   patient_id: string;
   summary: string | null;
+  symptoms: string[] | null;
   risk_level: string | null;
-  recommendations: string | null;
+  recommendation: string | null;
   created_at: string;
 }
 
 export interface DbPrescription {
   id: string;
   patient_id: string;
-  medication: string | null;
+  medical_record_id: string | null;
+  prescribed_by: string | null;
+  medicine_name: string | null;
   dosage: string | null;
-  frequency: string | null;
+  timing: string | null;
   duration: string | null;
+  meal_timing: string | null;
+  notes: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  is_active: boolean | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface PatientFullData {
@@ -176,28 +189,78 @@ export const getVitalsForPatients = async (patientIds: string[]) => {
   return (data ?? []) as DbVital[];
 };
 
+export const getPrescriptionsForPatients = async (patientIds: string[]) => {
+  if (patientIds.length === 0) return [] as DbPrescription[];
+
+  const { data, error } = await supabase
+    .from("prescriptions")
+    .select("*")
+    .in("patient_id", patientIds)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []) as DbPrescription[];
+};
+
 export const recordVitals = async (input: {
   patient_id: string;
+  recorded_by?: string | null;
   systolic_bp: number;
   diastolic_bp: number;
   heart_rate: number;
   spo2: number;
   temperature: number;
+  notes?: string | null;
   recorded_at?: string;
 }) => {
   const { error } = await supabase
     .from("vitals")
     .insert({
       patient_id: input.patient_id,
+      recorded_by: input.recorded_by ?? null,
       systolic_bp: input.systolic_bp,
       diastolic_bp: input.diastolic_bp,
       heart_rate: input.heart_rate,
       spo2: input.spo2,
       temperature: input.temperature,
+      notes: input.notes ?? null,
       recorded_at: input.recorded_at ?? new Date().toISOString(),
     });
 
   if (error) throw error;
+};
+
+export const addPrescription = async (input: {
+  patient_id: string;
+  prescribed_by?: string | null;
+  medicine_name: string;
+  dosage?: string | null;
+  timing?: string | null;
+  duration?: string | null;
+  meal_timing?: string | null;
+  notes?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+}) => {
+  const { data, error } = await supabase
+    .from("prescriptions")
+    .insert({
+      patient_id: input.patient_id,
+      prescribed_by: input.prescribed_by ?? null,
+      medicine_name: input.medicine_name,
+      dosage: input.dosage ?? null,
+      timing: input.timing ?? null,
+      duration: input.duration ?? null,
+      meal_timing: input.meal_timing ?? null,
+      notes: input.notes ?? null,
+      start_date: input.start_date ?? null,
+      end_date: input.end_date ?? null,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as DbPrescription;
 };
 
 /**

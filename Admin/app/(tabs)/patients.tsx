@@ -6,13 +6,20 @@ import { COLORS } from '../../constants/colors';
 import { useAppStore } from '../../store/useAppStore';
 import { PatientListItem } from '../../components/patient/PatientListItem';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function Patients() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const patients = useAppStore(state => state.patients);
+  const loadPatientsFromDb = useAppStore(state => state.loadPatientsFromDb);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'All' | 'HIGH' | 'MEDIUM' | 'LOW' | 'Overdue'>('All');
+
+  useFocusEffect(() => {
+    loadPatientsFromDb().catch(() => {});
+    return undefined;
+  });
 
   const filteredPatients = patients.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.village.toLowerCase().includes(search.toLowerCase());
