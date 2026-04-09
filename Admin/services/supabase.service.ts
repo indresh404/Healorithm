@@ -43,43 +43,30 @@ export interface DbVital {
 export interface DbMedicalRecord {
   id: string;
   patient_id: string;
-  recorded_by: string | null;
-  diagnosis: string | null;
+  type: string | null;
+  title: string | null;
   description: string | null;
-  vaccine_name: string | null;
-  vaccine_date: string | null;
-  visit_type: string | null;
-  visit_date: string | null;
+  file_url: string | null;
   created_at: string;
-  updated_at: string;
 }
 
 export interface DbAIConsultation {
   id: string;
   patient_id: string;
   summary: string | null;
-  symptoms: string[] | null;
   risk_level: string | null;
-  recommendation: string | null;
+  recommendations: string | null;
   created_at: string;
 }
 
 export interface DbPrescription {
   id: string;
   patient_id: string;
-  medical_record_id: string | null;
-  prescribed_by: string | null;
-  medicine_name: string | null;
+  medication: string | null;
   dosage: string | null;
-  timing: string | null;
+  frequency: string | null;
   duration: string | null;
-  meal_timing: string | null;
-  notes: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  is_active: boolean | null;
   created_at: string;
-  updated_at: string;
 }
 
 export interface PatientFullData {
@@ -91,52 +78,6 @@ export interface PatientFullData {
   ai_consultations?: DbAIConsultation[];
   prescriptions?: DbPrescription[];
 }
-
-const isMissingRpcFunctionError = (error: unknown) => {
-  if (!error || typeof error !== "object") return false;
-
-  const maybeError = error as { code?: string; message?: string };
-  return (
-    maybeError.code === "PGRST202" ||
-    maybeError.message?.includes("get_patient_full_data") === true
-  );
-};
-
-const fetchPatientRelatedData = async (patientId: string) => {
-  const [vitalsRes, recordsRes, aiRes, prescriptionsRes] = await Promise.all([
-    supabase
-      .from("vitals")
-      .select("*")
-      .eq("patient_id", patientId)
-      .order("recorded_at", { ascending: false })
-      .limit(50),
-    supabase
-      .from("medical_records")
-      .select("*")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: false })
-      .limit(100),
-    supabase
-      .from("ai_consultations")
-      .select("*")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: false })
-      .limit(50),
-    supabase
-      .from("prescriptions")
-      .select("*")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: false })
-      .limit(50),
-  ]);
-
-  return {
-    vitals: (vitalsRes.data ?? []) as DbVital[],
-    medical_records: (recordsRes.data ?? []) as DbMedicalRecord[],
-    ai_consultations: (aiRes.data ?? []) as DbAIConsultation[],
-    prescriptions: (prescriptionsRes.data ?? []) as DbPrescription[],
-  };
-};
 
 export const loginUserByPhone = async (phones: string[], password: string) => {
   const candidates = phones.filter(Boolean);
@@ -189,28 +130,13 @@ export const getVitalsForPatients = async (patientIds: string[]) => {
   return (data ?? []) as DbVital[];
 };
 
-export const getPrescriptionsForPatients = async (patientIds: string[]) => {
-  if (patientIds.length === 0) return [] as DbPrescription[];
-
-  const { data, error } = await supabase
-    .from("prescriptions")
-    .select("*")
-    .in("patient_id", patientIds)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return (data ?? []) as DbPrescription[];
-};
-
 export const recordVitals = async (input: {
   patient_id: string;
-  recorded_by?: string | null;
   systolic_bp: number;
   diastolic_bp: number;
   heart_rate: number;
   spo2: number;
   temperature: number;
-  notes?: string | null;
   recorded_at?: string;
   recorded_by?: string;
 }) => {
@@ -218,51 +144,16 @@ export const recordVitals = async (input: {
     .from("vitals")
     .insert({
       patient_id: input.patient_id,
-      recorded_by: input.recorded_by ?? null,
       systolic_bp: input.systolic_bp,
       diastolic_bp: input.diastolic_bp,
       heart_rate: input.heart_rate,
       spo2: input.spo2,
       temperature: input.temperature,
-      notes: input.notes ?? null,
       recorded_at: input.recorded_at ?? new Date().toISOString(),
       ...(input.recorded_by ? { recorded_by: input.recorded_by } : {}),
     });
 
   if (error) throw error;
-};
-
-export const addPrescription = async (input: {
-  patient_id: string;
-  prescribed_by?: string | null;
-  medicine_name: string;
-  dosage?: string | null;
-  timing?: string | null;
-  duration?: string | null;
-  meal_timing?: string | null;
-  notes?: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
-}) => {
-  const { data, error } = await supabase
-    .from("prescriptions")
-    .insert({
-      patient_id: input.patient_id,
-      prescribed_by: input.prescribed_by ?? null,
-      medicine_name: input.medicine_name,
-      dosage: input.dosage ?? null,
-      timing: input.timing ?? null,
-      duration: input.duration ?? null,
-      meal_timing: input.meal_timing ?? null,
-      notes: input.notes ?? null,
-      start_date: input.start_date ?? null,
-      end_date: input.end_date ?? null,
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as DbPrescription;
 };
 
 /**
@@ -285,9 +176,7 @@ export const getPatientByQRCode = async (qrCode: string): Promise<PatientFullDat
 
     return data as PatientFullData;
   } catch (error) {
-    if (!isMissingRpcFunctionError(error)) {
-      console.error("Error fetching patient data:", error);
-    }
+    console.error("Error fetching patient data:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to fetch patient data",
@@ -317,51 +206,44 @@ export const getPatientByQRCodeFallback = async (
       };
     }
 
-    const relatedData = await fetchPatientRelatedData(user.id);
+    // Step 2: Fetch all related data in parallel
+    const [vitalsRes, recordsRes, aiRes, prescriptionsRes] = await Promise.all([
+      supabase
+        .from("vitals")
+        .select("*")
+        .eq("patient_id", user.id)
+        .order("recorded_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("medical_records")
+        .select("*")
+        .eq("patient_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabase
+        .from("ai_consultations")
+        .select("*")
+        .eq("patient_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("prescriptions")
+        .select("*")
+        .eq("patient_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50),
+    ]);
 
     return {
       success: true,
       user: user as DbUser,
-      ...relatedData,
+      vitals: (vitalsRes.data ?? []) as DbVital[],
+      medical_records: (recordsRes.data ?? []) as DbMedicalRecord[],
+      ai_consultations: (aiRes.data ?? []) as DbAIConsultation[],
+      prescriptions: (prescriptionsRes.data ?? []) as DbPrescription[],
     };
   } catch (error) {
     console.error("Error fetching patient data (fallback):", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Failed to fetch patient data",
-    };
-  }
-};
-
-/**
- * Fallback for legacy profile QR payloads that embed a user id in a deep link
- */
-export const getPatientByUserIdFallback = async (
-  userId: string
-): Promise<PatientFullData> => {
-  try {
-    const { data: user, error: userError } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (userError || !user) {
-      return {
-        success: false,
-        error: "User not found",
-      };
-    }
-
-    const relatedData = await fetchPatientRelatedData(user.id);
-
-    return {
-      success: true,
-      user: user as DbUser,
-      ...relatedData,
-    };
-  } catch (error) {
-    console.error("Error fetching patient data (user id fallback):", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to fetch patient data",

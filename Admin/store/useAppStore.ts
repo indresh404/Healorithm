@@ -50,14 +50,6 @@ interface AppState {
   setCurrentPatient: (patientData: any) => void;
   loadPatientsFromDb: () => Promise<void>;
   updatePatientVitals: (patientId: string, vitals: Omit<VitalParams, 'id'>) => Promise<void>;
-  addPatientPrescription: (patientId: string, payload: {
-    medication: string;
-    dosage?: string;
-    timing?: string;
-    duration?: string;
-    mealTiming?: string;
-    notes?: string;
-  }) => Promise<void>;
   addToSyncQueue: (item: Omit<SyncItem, 'id' | 'timestamp'>) => void;
   markSynced: (itemId: string) => void;
   simulateSync: () => Promise<void>;
@@ -75,16 +67,6 @@ const isHighRisk = (v: VitalParams) => {
   if (v.temp > THRESHOLDS.TEMP_MAX) return true;
   if (v.hr > THRESHOLDS.HR_MAX || v.hr < THRESHOLDS.HR_MIN) return true;
   return false;
-};
-
-const mapPrescriptionToText = (p: Partial<DbPrescription>) => {
-  const name = p.medicine_name ?? '';
-  return [
-    name,
-    p.dosage ?? '',
-    p.timing ?? '',
-    p.duration ?? '',
-  ].filter((value) => Boolean(value)).join(' ').trim();
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -155,19 +137,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       entry.isHighRisk = isHighRisk(entry);
       return entry;
     });
-    vitalsHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const latestVital = vitalsHistory[0];
-    const latestAI = (patientData.aiConsultations ||
-      patientData.ai_consultations ||
-      [])[0] as DbAIConsultation | undefined;
+    const latestAI = (patientData.aiConsultations || [])[0] as DbAIConsultation | undefined;
     
     let riskLevel: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
-    const aiRisk = latestAI?.risk_level?.toUpperCase();
-    if (aiRisk === 'HIGH') riskLevel = 'HIGH';
-    else if (aiRisk === 'MEDIUM') riskLevel = 'MEDIUM';
-    else if (aiRisk === 'LOW') riskLevel = 'LOW';
-    else if (latestVital?.isHighRisk == true) riskLevel = 'HIGH';
+    if (latestAI?.risk_level === 'HIGH') riskLevel = 'HIGH';
+    else if (latestAI?.risk_level === 'MEDIUM') riskLevel = 'MEDIUM';
 
     const patient: Patient = {
       id: patientData.id,
@@ -184,7 +160,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       adherencePercentage: 0,
       adherenceLog: ['none', 'none', 'none', 'none', 'none', 'none', 'none'],
       vitalsHistory,
-      prescriptions: (patientData.prescriptions || []).map((p: DbPrescription) => mapPrescriptionToText(p)).filter(Boolean),
+      prescriptions: (patientData.prescriptions || []).map((p: any) => `${p.medication} ${p.dosage}`),
       notes: latestAI?.summary || '',
     };
 
@@ -193,13 +169,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   loadPatientsFromDb: async () => {
     const users = await getUsers();
-    const patientIds = users.map(u => u.id);
-    const [vitals, prescriptions] = await Promise.all([
-      getVitalsForPatients(patientIds),
-      getPrescriptionsForPatients(patientIds),
-    ]);
+    const vitals = await getVitalsForPatients(users.map(u => u.id));
     const vitalsByPatient = new Map<string, VitalParams[]>();
-    const prescriptionsByPatient = new Map<string, string[]>();
 
     vitals.forEach((v) => {
       const systolic = typeof v.systolic_bp === 'number' ? v.systolic_bp : null;
@@ -224,14 +195,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }
 
-    prescriptions.forEach((p) => {
-      const label = mapPrescriptionToText(p);
-      if (!label) return;
-      const list = prescriptionsByPatient.get(p.patient_id) ?? [];
-      list.push(label);
-      prescriptionsByPatient.set(p.patient_id, list);
-    });
-
     const patients: Patient[] = users.map((u) => {
       const history = vitalsByPatient.get(u.id) ?? [];
       const latest = history[0];
@@ -255,7 +218,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         adherencePercentage: 0,
         adherenceLog: ['none', 'none', 'none', 'none', 'none', 'none', 'none'],
         vitalsHistory: history,
-        prescriptions: prescriptionsByPatient.get(u.id) ?? [],
+        prescriptions: [],
         notes: '',
       };
     });
@@ -264,10 +227,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   updatePatientVitals: async (patientId, vitals) => {
-    const currentWorker = get().currentWorker;
     await recordVitals({
       patient_id: patientId,
-      recorded_by: currentWorker?.id ?? null,
       systolic_bp: Number(vitals.bp.split('/')[0]),
       diastolic_bp: Number(vitals.bp.split('/')[1]),
       heart_rate: vitals.hr,
@@ -315,13 +276,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => {
       const newPatients = state.patients.map((p) => {
         if (p.id === patientId) {
-          return {
-            ...p,
-            vitalsHistory: [newVital, ...p.vitalsHistory],
-            riskLevel: emergency ? 'HIGH' : p.riskLevel,
-            emergencyFlag: emergency ? true : p.emergencyFlag,
-            lastVisited: vitals.date,
-          };
+          p.vitalsHistory = [newVital, ...p.vitalsHistory];
+          if (emergency) {
+            p.riskLevel = 'HIGH';
+            p.emergencyFlag = true;
+          }
+          return p;
         }
         return p;
       });
@@ -343,62 +303,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       }
 
-      const currentPatient =
-        state.currentPatient?.id === patientId
-            ? {
-                ...state.currentPatient,
-                vitalsHistory: [newVital, ...state.currentPatient.vitalsHistory],
-                riskLevel: emergency ? 'HIGH' : state.currentPatient.riskLevel,
-                emergencyFlag: emergency ? true : state.currentPatient.emergencyFlag,
-                lastVisited: vitals.date,
-              }
-            : state.currentPatient;
-
-      return { patients: newPatients, alerts: newAlerts, currentPatient };
+      return { patients: newPatients, alerts: newAlerts };
     });
 
     get().addToSyncQueue({ type: 'VITALS_UPDATE', data: { patientId, vitals } });
-  },
-
-  addPatientPrescription: async (patientId, payload) => {
-    const currentWorker = get().currentWorker;
-    const created = await addPrescription({
-      patient_id: patientId,
-      prescribed_by: currentWorker?.id ?? null,
-      medicine_name: payload.medication,
-      dosage: payload.dosage ?? null,
-      timing: payload.timing ?? null,
-      duration: payload.duration ?? null,
-      meal_timing: payload.mealTiming ?? null,
-      notes: payload.notes ?? null,
-      start_date: new Date().toISOString().substring(0, 10),
-    });
-
-    const label = mapPrescriptionToText(created);
-
-    set((state) => {
-      const patients = state.patients.map((patient) => {
-        if (patient.id !== patientId) return patient;
-        return {
-          ...patient,
-          prescriptions: label.length === 0
-              ? patient.prescriptions
-              : [label, ...patient.prescriptions],
-        };
-      });
-
-      const currentPatient =
-          state.currentPatient?.id === patientId
-              ? {
-                  ...state.currentPatient,
-                  prescriptions: label.length === 0
-                      ? state.currentPatient.prescriptions
-                      : [label, ...state.currentPatient.prescriptions],
-                }
-              : state.currentPatient;
-
-      return { patients, currentPatient };
-    });
   },
 
   addToSyncQueue: (item) => {

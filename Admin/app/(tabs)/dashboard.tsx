@@ -9,17 +9,11 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
 
 export default function Dashboard() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { currentWorker, patients, alerts, syncQueue, simulateSync, loadPatientsFromDb } = useAppStore();
-
-  useFocusEffect(() => {
-    loadPatientsFromDb().catch(() => {});
-    return undefined;
-  });
+  const { currentWorker, patients, alerts, syncQueue, simulateSync } = useAppStore();
 
   const highRiskPatients = patients.filter(p => p.riskLevel === 'HIGH');
   const pendingSyncCount = syncQueue.length;

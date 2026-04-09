@@ -37,11 +37,6 @@ export default function Patients() {
     return '#2ECC71';
   };
 
-  useFocusEffect(() => {
-    loadPatientsFromDb().catch(() => {});
-    return undefined;
-  });
-
   const filteredPatients = patients.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.village.toLowerCase().includes(search.toLowerCase());
     if (filter === 'All') return matchesSearch;
@@ -64,11 +59,7 @@ export default function Patients() {
   };
 
   const AIPriorityCard = ({ item }: { item: PrioritizedPatient }) => (
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={() => router.push(`/patient/${item.patient_id}`)}
-      style={[styles.aiCard, item.emergency_flag && styles.aiCardEmergency]}
-    >
+    <View style={[styles.aiCard, item.emergency_flag && styles.aiCardEmergency]}>
       <View style={[styles.aiOrderBadge, { backgroundColor: riskColor(item.risk_level) }]}>
         <Text style={styles.aiOrderText}>#{item.visit_order}</Text>
       </View>
@@ -95,7 +86,7 @@ export default function Patients() {
           </Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   return (
