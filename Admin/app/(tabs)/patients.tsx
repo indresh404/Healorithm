@@ -37,6 +37,11 @@ export default function Patients() {
     return '#2ECC71';
   };
 
+  useFocusEffect(() => {
+    loadPatientsFromDb().catch(() => {});
+    return undefined;
+  });
+
   const filteredPatients = patients.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.village.toLowerCase().includes(search.toLowerCase());
     if (filter === 'All') return matchesSearch;

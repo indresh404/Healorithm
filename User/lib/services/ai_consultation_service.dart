@@ -109,8 +109,60 @@ class AIConsultationService {
   static StreamSubscription? _connectivitySub;
   static bool _syncInProgress = false;
 
-  // Change this IP dynamically (10.0.2.2 for emulator, or your local machine IP)
-  static const String pythonServerUrl = 'http://172.16.8.35:5000';
+  static const String pythonServerUrl = String.fromEnvironment(
+    'AI_SERVER_URL',
+    defaultValue: 'http://10.0.2.2:5000',
+  );
+
+  static String languageCodeForUser(String? preferredLanguage) {
+    final code = (preferredLanguage ?? 'en').toLowerCase();
+    if (code.startsWith('hi')) return 'hi-IN';
+    if (code.startsWith('ta')) return 'ta-IN';
+    if (code.startsWith('te')) return 'te-IN';
+    if (code.startsWith('bn')) return 'bn-IN';
+    if (code.startsWith('mr')) return 'mr-IN';
+    if (code.startsWith('gu')) return 'gu-IN';
+    if (code.startsWith('kn')) return 'kn-IN';
+    if (code.startsWith('ml')) return 'ml-IN';
+    return 'en-IN';
+  }
+
+  static Future<String> generateChatReply({
+    required String message,
+    required List<Map<String, String>> history,
+    String language = 'en-IN',
+  }) async {
+    final url = Uri.parse('$pythonServerUrl/api/chat');
+    final payload = {
+      'message': message,
+      'history': history
+          .map((item) => {
+                'role': item['role'] ?? 'user',
+                'text': item['text'] ?? '',
+              })
+          .toList(),
+      'language': language,
+    };
+
+    final res = await http
+        .post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(payload),
+        )
+        .timeout(const Duration(seconds: 60));
+
+    if (res.statusCode != 200) {
+      throw Exception('AI server error ${res.statusCode}: ${res.body}');
+    }
+
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final reply = data['response']?.toString().trim() ?? '';
+    if (reply.isEmpty) {
+      throw Exception('AI server returned an empty response');
+    }
+    return reply;
+  }
 
   // ── Init (call in main.dart after Supabase.initialize) ──────────────────
   static Future<void> init() async {

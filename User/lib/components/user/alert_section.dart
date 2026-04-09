@@ -46,6 +46,23 @@ class _AlertSectionState extends State<AlertSection>
     'Night': '20:00 – 22:00',
   };
 
+  static const List<Map<String, dynamic>> _fallbackPrescriptions = [
+    {
+      'medicine_name': 'Paracetamol',
+      'dosage': '500mg',
+      'timing': 'Morning and Night',
+      'duration': '3 days',
+      'notes': 'Example plan. Follow doctor advice.',
+    },
+    {
+      'medicine_name': 'ORS',
+      'dosage': '1 sachet',
+      'timing': 'Afternoon',
+      'duration': '2 days',
+      'notes': 'Example hydration support.',
+    }
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -92,9 +109,9 @@ class _AlertSectionState extends State<AlertSection>
         'dose': p['dosage'] ?? '',
         'note': p['notes'] ?? p['message'] ?? '',
         'type': 'rx',
-        'label': _labelFromFrequency(p['frequency'] as String? ?? ''),
-        'time': _timeFromFrequency(p['frequency'] as String? ?? ''),
-        'doctor': p['doctor_name'] ?? '',
+        'label': _labelFromPrescription(p),
+        'time': _timeFromPrescription(p),
+        'doctor': '',
       });
     }
     for (final m in _aiMedicines) {
@@ -112,6 +129,12 @@ class _AlertSectionState extends State<AlertSection>
     return list;
   }
 
+  String _prescriptionTimingText(Map<String, dynamic> prescription) {
+    final timing = prescription['timing']?.toString().trim() ?? '';
+    final mealTiming = prescription['meal_timing']?.toString().trim() ?? '';
+    return [timing, mealTiming].where((value) => value.isNotEmpty).join(' ');
+  }
+
   String _labelFromFrequency(String freq) {
     final f = freq.toLowerCase();
     if (f.contains('night') || f.contains('bed') || f.contains('evening')) {
@@ -123,9 +146,21 @@ class _AlertSectionState extends State<AlertSection>
 
   String _timeFromFrequency(String freq) {
     final f = freq.toLowerCase();
-    if (f.contains('night') || f.contains('bed')) return '21:00';
-    if (f.contains('afternoon') || f.contains('lunch')) return '13:00';
+    if (f.contains('night') || f.contains('bed') || f.contains('after dinner')) {
+      return '21:00';
+    }
+    if (f.contains('afternoon') || f.contains('lunch') || f.contains('after lunch')) {
+      return '13:00';
+    }
     return '08:00';
+  }
+
+  String _labelFromPrescription(Map<String, dynamic> prescription) {
+    return _labelFromFrequency(_prescriptionTimingText(prescription));
+  }
+
+  String _timeFromPrescription(Map<String, dynamic> prescription) {
+    return _timeFromFrequency(_prescriptionTimingText(prescription));
   }
 
   // ── Data loading ───────────────────────────────────────────────────────────
@@ -140,7 +175,7 @@ class _AlertSectionState extends State<AlertSection>
           final data = await _supabase
               .from('prescriptions')
               .select()
-              .eq('user_id', userId)
+              .eq('patient_id', userId)
               .order('created_at', ascending: false);
           prescriptions = List<Map<String, dynamic>>.from(data);
         } catch (e) {
@@ -153,6 +188,10 @@ class _AlertSectionState extends State<AlertSection>
         aiMeds = await AIConsultationService.getMedicineSchedule();
       } catch (e) {
         debugPrint('AI medicines: $e');
+      }
+
+      if (prescriptions.isEmpty && aiMeds.isEmpty) {
+        prescriptions = List<Map<String, dynamic>>.from(_fallbackPrescriptions);
       }
 
       final prefs = await SharedPreferences.getInstance();
@@ -1404,12 +1443,18 @@ class _AlertSectionState extends State<AlertSection>
     final displayName = name[0].toUpperCase() + name.substring(1);
     final isTaken = _takenToday.contains(name);
     final dosage = p['dosage'] as String? ?? '';
-    final frequency = p['frequency'] as String? ?? '';
-    final doctor = p['doctor_name'] as String? ?? '';
+    final timing = p['timing'] as String? ?? '';
+    final mealTiming = p['meal_timing'] as String? ?? '';
+    final duration = p['duration'] as String? ?? '';
     final notes = p['notes'] as String? ?? p['message'] as String? ?? '';
     final startDate =
         p['start_date'] as String? ?? p['created_at'] as String? ?? '';
     final endDate = p['end_date'] as String?;
+    final subtitleParts = [timing, mealTiming, duration]
+        .where((value) => value.isNotEmpty)
+        .toList();
+    final frequency = subtitleParts.join(' • ');
+    const doctor = '';
 
     String dateStr = '';
     if (startDate.isNotEmpty) {

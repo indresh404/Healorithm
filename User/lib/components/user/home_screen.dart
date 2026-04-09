@@ -11,6 +11,9 @@ import 'package:healorithm/services/ai_consultation_service.dart';
 import 'package:healorithm/components/user/ai_chat_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,7 +24,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _hospitals = [];
+  List<Map<String, dynamic>> _workers = [];
   bool _loadingHospitals = true;
+  bool _loadingWorkers = true;
   bool _loadingAnalytics = true;
   String? _error;
   Map<String, dynamic> _analytics = {};
@@ -30,7 +35,42 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadAnalytics();
+    _loadWorkers();
     getNearbyHospitals();
+  }
+
+  Future<void> _loadWorkers() async {
+    setState(() => _loadingWorkers = true);
+    try {
+      final data = await Supabase.instance.client
+          .from('worker')
+          .select('name, phone_no, created_at')
+          .order('created_at', ascending: false);
+      if (!mounted) return;
+      setState(() {
+        _workers = List<Map<String, dynamic>>.from(data);
+        _loadingWorkers = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingWorkers = false);
+    }
+  }
+
+  Future<void> _callWorker(String phone) async {
+    final cleaned = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (cleaned.isEmpty) return;
+
+    final status = await Permission.phone.request();
+    if (!status.isGranted) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Phone call permission is required to place direct calls.')),
+      );
+      return;
+    }
+
+    await FlutterPhoneDirectCaller.callNumber(cleaned);
   }
 
   Future<void> _loadAnalytics() async {
@@ -132,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
       color: AppTheme.offWhite,
       child: RefreshIndicator(
         onRefresh: () async {
-          await Future.wait([_loadAnalytics(), getNearbyHospitals()]);
+          await Future.wait([_loadAnalytics(), _loadWorkers(), getNearbyHospitals()]);
         },
         color: AppTheme.primaryBlue,
         child: ListView(
@@ -148,6 +188,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // Quick actions
             _buildQuickActions(context),
+            const SizedBox(height: 20),
+
+            _buildWorkersSection(),
             const SizedBox(height: 20),
 
             // Nearby hospitals
@@ -462,6 +505,75 @@ class _HomeScreenState extends State<HomeScreen> {
         _buildNoHospitals()
       else
         ..._hospitals.take(10).map(_buildHospitalCard),
+    ]);
+  }
+
+  Widget _buildWorkersSection() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Container(
+          width: 4,
+          height: 20,
+          decoration: BoxDecoration(
+            color: AppTheme.primaryBlue,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Icon(Icons.support_agent_rounded, color: AppTheme.primaryBlue, size: 20),
+        const SizedBox(width: 6),
+        const Text('Health Workers', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+      ]),
+      const SizedBox(height: 12),
+      if (_loadingWorkers)
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        )
+      else if (_workers.isEmpty)
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+          child: const Text('No workers available right now.'),
+        )
+      else
+        ..._workers.map((w) {
+          final name = (w['name'] ?? 'Health Worker').toString();
+          final phone = (w['phone_no'] ?? '').toString();
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2)),
+              ],
+            ),
+            child: ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.person, color: AppTheme.primaryBlue),
+              ),
+              title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              subtitle: Text(phone.isEmpty ? 'Phone not available' : phone),
+              trailing: IconButton(
+                onPressed: phone.isEmpty ? null : () => _callWorker(phone),
+                icon: const Icon(Icons.call_rounded),
+                color: phone.isEmpty ? Colors.grey : const Color(0xFF2E7D32),
+              ),
+            ),
+          );
+        }),
     ]);
   }
 

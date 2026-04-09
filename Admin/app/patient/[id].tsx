@@ -17,8 +17,10 @@ export default function PatientDetail() {
   const currentPatient = useAppStore(state => state.currentPatient);
   const patients = useAppStore(state => state.patients);
   
-  // First try to use currentPatient (from QR scan), then fallback to the patients list
-  const patient = currentPatient || patients.find(p => p.id === id);
+  // Prefer matching currentPatient (from QR scan) when it matches this route id.
+  const patient = currentPatient?.id === id
+    ? currentPatient
+    : patients.find(p => p.id === id);
 
   if (!patient) return null;
 
@@ -121,7 +123,12 @@ export default function PatientDetail() {
         {/* Vitals History */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Vitals History</Text>
-          {patient.vitalsHistory.map((v, i) => (
+          {patient.vitalsHistory.length === 0 && (
+            <Card style={styles.vitalHistoryItem}>
+              <Text style={styles.emptySectionText}>No vitals recorded yet.</Text>
+            </Card>
+          )}
+          {patient.vitalsHistory.map((v) => (
             <Card key={v.id} style={styles.vitalHistoryItem}>
               <View style={styles.vitalHeader}>
                 <Text style={styles.vitalDate}>
@@ -147,6 +154,20 @@ export default function PatientDetail() {
                   <Text style={styles.vitalValue}>{v.hr} bpm</Text>
                 </View>
               </View>
+            </Card>
+          ))}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Prescriptions</Text>
+          {patient.prescriptions.length === 0 && (
+            <Card style={styles.vitalHistoryItem}>
+              <Text style={styles.emptySectionText}>No prescriptions added yet.</Text>
+            </Card>
+          )}
+          {patient.prescriptions.map((prescription, index) => (
+            <Card key={`${prescription}-${index}`} style={styles.vitalHistoryItem}>
+              <Text style={styles.vitalValue}>{prescription}</Text>
             </Card>
           ))}
         </View>
@@ -404,6 +425,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_700Bold',
     fontSize: 14,
     color: COLORS.TEXT_PRIMARY,
+  },
+  emptySectionText: {
+    fontFamily: 'Poppins_500Medium',
+    fontSize: 13,
+    color: COLORS.TEXT_SECONDARY,
   },
   bottomActions: {
     position: 'absolute',

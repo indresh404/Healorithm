@@ -53,27 +53,33 @@ export default function RecordVitals() {
     setErrorMessage(msg);
   }, [bpSys, bpDia, spo2, temp, hr]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!bpSys || !bpDia || !spo2 || !temp || !hr) {
       Alert.alert("Missing Data", "Please fill in all vital fields.");
       return;
     }
 
-    updatePatientVitals(id as string, {
-      date: new Date().toISOString(),
-      bp: `${bpSys}/${bpDia}`,
-      spo2: Number(spo2),
-      temp: Number(temp),
-      hr: Number(hr),
-    });
+    try {
+      await updatePatientVitals(id as string, {
+        date: new Date().toISOString(),
+        bp: `${bpSys}/${bpDia}`,
+        spo2: Number(spo2),
+        temp: Number(temp),
+        hr: Number(hr),
+      });
 
-    Alert.alert(
-      isEmergency ? "🚨 EMERGENCY FLAGGED" : "Success",
-      isEmergency ? "Vitals saved and emergency alert sent to medical team." : "Vitals recorded successfully.",
-      [{ text: "OK", onPress: () => router.back() }]
-    );
+      Alert.alert(
+        isEmergency ? "🚨 EMERGENCY FLAGGED" : "Success",
+        isEmergency ? "Vitals saved and emergency alert sent to medical team." : "Vitals recorded successfully.",
+        [{ text: "OK", onPress: () => router.back() }]
+      );
+    } catch (error) {
+      Alert.alert(
+        "Save failed",
+        error instanceof Error ? error.message : "Unable to save vitals."
+      );
+    }
   };
-
   if (!patient) return null;
 
   return (
@@ -260,4 +266,5 @@ const styles = StyleSheet.create({
     color: COLORS.WHITE,
   },
 });
+
 

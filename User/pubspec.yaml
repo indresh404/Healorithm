@@ -45,6 +45,8 @@ dependencies:
   uuid: ^4.5.1                       # Generate unique session/record IDs
   http: ^1.2.0
   shared_preferences: ^2.2.2
+  permission_handler: ^11.3.1
+  flutter_phone_direct_caller: ^2.2.1
 
 dev_dependencies:
   flutter_test:
