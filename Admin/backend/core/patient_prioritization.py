@@ -10,12 +10,15 @@
 #
 # Algorithm
 # ─────────
-# priority_score =
-#     (risk_score     × WEIGHT_RISK)      +  40% — current health danger
-#     (days_overdue   × WEIGHT_OVERDUE)   +  30% — how long since last visit
-#     (adherence_gap  × WEIGHT_ADHERENCE) +  15% — low adherence = more urgent
-#     (symptom_sev    × WEIGHT_SYMPTOM)   +  10% — recent complaint severity
-#     (age_factor     × WEIGHT_AGE)           5% — slight elderly bias
+# 1. Severity-weighted priority score:
+#    emergency and red-risk patients receive a strong base bonus so their
+#    displayed score always stays above lower-risk tiers.
+# 2. Within the same severity band, use weighted clinical priority:
+#       (risk_score     × WEIGHT_RISK)      +  40% — current health danger
+#       (days_overdue   × WEIGHT_OVERDUE)   +  30% — how long since last visit
+#       (adherence_gap  × WEIGHT_ADHERENCE) +  15% — low adherence = more urgent
+#       (symptom_sev    × WEIGHT_SYMPTOM)   +  10% — recent complaint severity
+#       (age_factor     × WEIGHT_AGE)           5% — slight elderly bias
 #
 # All inputs come from Supabase (existing tables the User app already writes to)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -34,6 +37,21 @@ _RISK_LEVEL_TO_SEVERITY = {
     "unknown": 3.0,
 }
 
+_RISK_LEVEL_SORT_ORDER = {
+    "green":  0,
+    "yellow": 1,
+    "red":    2,
+}
+
+_SEVERITY_BASE_SCORE = {
+    "green":  15.0,
+    "yellow": 45.0,
+    "red":    75.0,
+}
+
+_EMERGENCY_BASE_SCORE = 90.0
+_DETAIL_SCORE_SCALE = 0.20
+
 
 def _days_since(iso_date_str: str | None) -> int:
     """Return calendar days since a given UTC ISO-8601 timestamp. Never fails."""
@@ -47,10 +65,10 @@ def _days_since(iso_date_str: str | None) -> int:
 
 
 def _build_reason(
-    risk_score:    float,
-    days_overdue:  int,
-    adherence:     float,
-    ai_risk_level: str,
+    risk_score:       float,
+    days_overdue:     int,
+    adherence:        float,
+    symptom_risk_tag: str,
 ) -> str:
     """Compose a short human-readable reason string for the worker."""
     parts = []
@@ -62,9 +80,41 @@ def _build_reason(
         parts.append(f"{days_overdue}d overdue")
     if adherence < 60:
         parts.append(f"Low adherence ({adherence:.0f}%)")
-    if ai_risk_level == "red":
-        parts.append("Critical AI symptoms")
+    if symptom_risk_tag == "red":
+        parts.append("Red clinical flag")
     return " · ".join(parts) if parts else "Routine checkup"
+
+
+def _sort_key(item: dict) -> tuple:
+    """Sort by final priority score and use severity as deterministic tie-breakers."""
+    return (
+        item["priority_score"],
+        1 if item["emergency_flag"] else 0,
+        _RISK_LEVEL_SORT_ORDER.get(item["risk_level"], 0),
+    )
+
+
+def _compute_priority_score(
+    risk_score: float,
+    overdue_score: int,
+    adherence_gap: float,
+    symptom_sev: float,
+    age_factor: float,
+    risk_level: str,
+    emergency_flag: bool,
+) -> float:
+    """Return a displayable score whose ordering matches the visit order."""
+    detail_score = (
+        risk_score    * PRIO_WEIGHTS.RISK_SCORE    +
+        overdue_score * PRIO_WEIGHTS.DAYS_OVERDUE  +
+        adherence_gap * PRIO_WEIGHTS.ADHERENCE     +
+        symptom_sev   * PRIO_WEIGHTS.SYMPTOM_SEV   +
+        age_factor    * PRIO_WEIGHTS.AGE_FACTOR
+    )
+
+    severity_base = _EMERGENCY_BASE_SCORE if emergency_flag else _SEVERITY_BASE_SCORE.get(risk_level, 15.0)
+    final_score = severity_base + (detail_score * _DETAIL_SCORE_SCALE)
+    return round(min(final_score, 100.0), 1)
 
 
 # ─── Main public function ─────────────────────────────────────────────────────
@@ -118,8 +168,8 @@ def build_prioritized_list(worker_id: str, patient_ids: list) -> dict:
         days_overdue    = _days_since(last_visit_str)
 
         # Latest AI consultation risk level
-        ai_risk_level   = db.fetch_latest_consultation_risk(patient_id)
-        symptom_sev     = _RISK_LEVEL_TO_SEVERITY.get(ai_risk_level, 3.0)
+        symptom_risk_tag = db.fetch_latest_consultation_risk(patient_id)
+        symptom_sev      = _RISK_LEVEL_TO_SEVERITY.get(symptom_risk_tag, 3.0)
 
         # Latest vitals for risk computing
         recent_vitals   = db.fetch_recent_vitals(patient_id, limit=1)
@@ -145,35 +195,37 @@ def build_prioritized_list(worker_id: str, patient_ids: list) -> dict:
 
         age_factor = 5.0 if int(p.get("age") or 0) > 60 else 0.0
 
-        priority_score = (
-            risk_score    * PRIO_WEIGHTS.RISK_SCORE    +
-            overdue_score * PRIO_WEIGHTS.DAYS_OVERDUE  +
-            adherence_gap * PRIO_WEIGHTS.ADHERENCE     +
-            symptom_sev   * PRIO_WEIGHTS.SYMPTOM_SEV   +
-            age_factor    * PRIO_WEIGHTS.AGE_FACTOR
-        )
-
-        reason = _build_reason(risk_score, days_overdue, adherence_rate, ai_risk_level)
-
         # Always use freshly computed risk level for consistency
         display_risk_level = risk_result.level
+        emergency_flag = bool(p.get("emergency_flag", False))
+        priority_score = _compute_priority_score(
+            risk_score=risk_score,
+            overdue_score=overdue_score,
+            adherence_gap=adherence_gap,
+            symptom_sev=symptom_sev,
+            age_factor=age_factor,
+            risk_level=display_risk_level,
+            emergency_flag=emergency_flag,
+        )
+
+        reason = _build_reason(risk_score, days_overdue, adherence_rate, symptom_risk_tag)
 
         scored.append({
             "patient_id":    str(patient_id),
             "name":          p.get("name", "Unknown"),
             "phone":         p.get("phone"),
             "village":       p.get("village"),
-            "priority_score": round(priority_score, 1),
+            "priority_score": priority_score,
             "risk_level":    display_risk_level,
             "reason":        reason,
             "days_overdue":  days_overdue if days_overdue < 999 else 0,
             "adherence_rate": round(adherence_rate, 1),
             "age":           int(p.get("age") or 0),
-            "emergency_flag": bool(p.get("emergency_flag", False)),
+            "emergency_flag": emergency_flag,
         })
 
-    # Sort descending — highest priority first
-    scored.sort(key=lambda x: x["priority_score"], reverse=True)
+    # Sort descending — displayed score now already includes severity weighting
+    scored.sort(key=_sort_key, reverse=True)
 
     # Attach visit order numbers (1, 2, 3…)
     for idx, item in enumerate(scored, start=1):
@@ -183,7 +235,7 @@ def build_prioritized_list(worker_id: str, patient_ids: list) -> dict:
         "success":          True,
         "worker_id":        worker_id,
         "total_patients":   len(scored),
-        "generated_at":     datetime.utcnow().isoformat() + "Z",
+        "generated_at":     datetime.now(timezone.utc).isoformat(),
         "prioritized_list": scored,
     }
 
@@ -193,7 +245,7 @@ def _empty_result(worker_id: str) -> dict:
         "success":          True,
         "worker_id":        worker_id,
         "total_patients":   0,
-        "generated_at":     datetime.utcnow().isoformat() + "Z",
+        "generated_at":     datetime.now(timezone.utc).isoformat(),
         "prioritized_list": [],
         "message":          "No patients assigned to this worker",
     }
