@@ -111,6 +111,27 @@ def fetch_recent_vitals(patient_id, limit: int = 5) -> list:
     return res.data or []
 
 
+def fetch_latest_vitals_for_patients(patient_ids: list) -> dict:
+    """Batch fetch the latest vitals for multiple patients.
+    Returns a dict: { patient_id -> vitals_row }
+    """
+    if not patient_ids:
+        return {}
+    res = get_client().table(TABLE_VITALS)\
+        .select("*")\
+        .in_("patient_id", patient_ids)\
+        .order("created_at", desc=True)\
+        .execute()
+    rows = res.data or []
+    # Keep only the first (latest) row per patient
+    result: dict = {}
+    for row in rows:
+        pid = row.get("patient_id")
+        if pid and pid not in result:
+            result[pid] = row
+    return result
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # AI CONSULTATIONS  (reads from the existing `ai_consultations` table)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -126,7 +147,21 @@ def fetch_recent_consultations(patient_id, limit: int = 5) -> list:
 
 
 def fetch_latest_consultation_risk(patient_id) -> str:
-    """Return the risk_level from the users table (ai_consultations uses integer FK, not UUID)."""
+    """Return a normalised risk_level ('green'|'yellow'|'red') from the users table.
+
+    The User app stores values like 'Low', 'Moderate', 'High', 'Critical'.
+    The scoring engine expects lowercase 'green'/'yellow'/'red', so we normalise here.
+    """
+    _NORMALISE = {
+        "low":      "green",
+        "moderate": "yellow",
+        "medium":   "yellow",
+        "high":     "red",
+        "critical": "red",
+        "green":    "green",
+        "yellow":   "yellow",
+        "red":      "red",
+    }
     try:
         res = get_client().table(TABLE_USERS)\
             .select("risk_level")\
@@ -134,7 +169,8 @@ def fetch_latest_consultation_risk(patient_id) -> str:
             .limit(1)\
             .execute()
         if res.data:
-            return res.data[0].get("risk_level") or "green"
+            raw = (res.data[0].get("risk_level") or "").strip().lower()
+            return _NORMALISE.get(raw, "green")
     except Exception:
         pass
     return "green"

@@ -6,27 +6,46 @@
 // physical device.  'localhost' only works on emulators.
 //
 // Find your IP:  Windows → ipconfig  |  Mac → ifconfig | grep inet
-// Example:       export const BACKEND_URL = 'http://192.168.1.42:8000';
+// 
+// FOR PHYSICAL DEVICE:
+// Change this to: 'http://192.168.X.X:8000' (replace with your machine IP)
+// FOR EMULATOR:
+// Use: 'http://localhost:8000'
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const BACKEND_URL = 'http://localhost:8000';
+// ⚠️ CHANGE THIS TO YOUR MACHINE IP IF TESTING ON PHYSICAL DEVICE
+export const BACKEND_URL = 'http://10.125.162.214:8000';
+
+// Quick debug: log the URL being used
+console.log('🔗 Admin API Backend:', BACKEND_URL);
+
 const API = `${BACKEND_URL}/api/admin`;
 
 // ─── Generic fetch wrapper ────────────────────────────────────────────────────
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'bypass-tunnel-reminder': 'true',
-      ...(options?.headers ?? {}),
-    },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail ?? `HTTP ${res.status}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000); // 10-second timeout
+  try {
+    const res = await fetch(`${API}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'bypass-tunnel-reminder': 'true',
+        ...(options?.headers ?? {}),
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail ?? `HTTP ${res.status}`);
+    }
+    return res.json() as Promise<T>;
+  } catch (e: any) {
+    if (e.name === 'AbortError') throw new Error('Backend unreachable — request timed out');
+    throw e;
+  } finally {
+    clearTimeout(timeout);
   }
-  return res.json() as Promise<T>;
 }
 
 // ─── Types mirroring the backend responses ────────────────────────────────────
@@ -100,8 +119,22 @@ export interface RecordVitalsResponse {
 
 export const adminApi = {
   /** Health check — use to verify backend is reachable */
-  health: () =>
-    fetch(`${BACKEND_URL}/health`, { headers: { 'bypass-tunnel-reminder': 'true' } }).then(r => r.json()),
+  health: async (): Promise<{ status: string }> => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+      const res = await fetch(`${BACKEND_URL}/health`, {
+        signal: controller.signal,
+        headers: { 'bypass-tunnel-reminder': 'true' },
+      });
+      return res.json();
+    } catch (e: any) {
+      if (e.name === 'AbortError') throw new Error('Backend unreachable — request timed out');
+      throw e;
+    } finally {
+      clearTimeout(timeout);
+    }
+  },
 
   /** Login an admin/worker by phone + password */
   login: (phone: string, password: string) =>

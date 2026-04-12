@@ -152,52 +152,57 @@ def build_prioritized_list(worker_id: str, patient_ids: list) -> dict:
     if not patient_ids:
         return _empty_result(worker_id)
 
-    # ── Batch fetch all patients in a single Supabase call ────────────────
+    # ── Batch fetch everything in 2 Supabase calls (avoids N+1 slowness) ──
     patients = db.fetch_patients_by_ids(patient_ids)
     if not patients:
         return _empty_result(worker_id)
+
+    all_ids = [p["id"] for p in patients]
+    latest_vitals_map = db.fetch_latest_vitals_for_patients(all_ids)  # { patient_id -> row }
+
+    # risk_level already sits on the users row — no extra query needed per patient
+    _NORMALISE = {
+        "low": "green", "moderate": "yellow", "medium": "yellow",
+        "high": "red", "critical": "red",
+        "green": "green", "yellow": "yellow", "red": "red",
+    }
 
     scored = []
 
     for p in patients:
         patient_id = p.get("id")
 
-        # ── Per-patient data ────────────────────────────────────────────────
-        adherence_rate  = float(p.get("adherence_rate") or 100.0)
-        last_visit_str  = p.get("last_visit_date")
-        days_overdue    = _days_since(last_visit_str)
+        adherence_rate = float(p.get("adherence_rate") or 100.0)
+        last_visit_str = p.get("last_visit_date")
+        days_overdue   = _days_since(last_visit_str)
 
-        # Latest AI consultation risk level
-        symptom_risk_tag = db.fetch_latest_consultation_risk(patient_id)
+        # Risk tag from users row — already normalised
+        raw_risk = (p.get("risk_level") or "").strip().lower()
+        symptom_risk_tag = _NORMALISE.get(raw_risk, "green")
         symptom_sev      = _RISK_LEVEL_TO_SEVERITY.get(symptom_risk_tag, 3.0)
 
-        # Latest vitals for risk computing
-        recent_vitals   = db.fetch_recent_vitals(patient_id, limit=1)
-        latest_v        = recent_vitals[0] if recent_vitals else {}
+        # Latest vitals from batch map
+        latest_v = latest_vitals_map.get(str(patient_id)) or {}
 
-        # Compute current risk score from all data
         risk_result = compute_risk_score(
-            age               = int(p.get("age") or 0),
-            chronic_diseases  = p.get("chronic_diseases") or [],
-            sys_bp            = latest_v.get("systolic_bp"),
-            dia_bp            = latest_v.get("diastolic_bp"),
-            spo2              = latest_v.get("spo2"),
-            temperature       = latest_v.get("temperature"),
-            heart_rate        = latest_v.get("heart_rate"),
-            adherence_rate    = adherence_rate,
+            age              = int(p.get("age") or 0),
+            chronic_diseases = p.get("chronic_diseases") or [],
+            sys_bp           = latest_v.get("systolic_bp"),
+            dia_bp           = latest_v.get("diastolic_bp"),
+            spo2             = latest_v.get("spo2"),
+            temperature      = latest_v.get("temperature"),
+            heart_rate       = latest_v.get("heart_rate"),
+            adherence_rate   = adherence_rate,
         )
 
-        risk_score = risk_result.score
+        risk_score     = risk_result.score
+        overdue_score  = min(days_overdue, MAX_OVERDUE_DAYS_SCORE)
+        adherence_gap  = max(100.0 - adherence_rate, 0.0)
+        age_factor     = 5.0 if int(p.get("age") or 0) > 60 else 0.0
 
-        # ── Weighted scoring formula ─────────────────────────────────────────
-        overdue_score  = min(days_overdue, MAX_OVERDUE_DAYS_SCORE)   # cap contribution
-        adherence_gap  = max(100.0 - adherence_rate, 0.0)             # 0–100
-
-        age_factor = 5.0 if int(p.get("age") or 0) > 60 else 0.0
-
-        # Always use freshly computed risk level for consistency
         display_risk_level = risk_result.level
-        emergency_flag = bool(p.get("emergency_flag", False))
+        emergency_flag     = bool(p.get("emergency_flag", False))
+
         priority_score = _compute_priority_score(
             risk_score=risk_score,
             overdue_score=overdue_score,
@@ -211,16 +216,16 @@ def build_prioritized_list(worker_id: str, patient_ids: list) -> dict:
         reason = _build_reason(risk_score, days_overdue, adherence_rate, symptom_risk_tag)
 
         scored.append({
-            "patient_id":    str(patient_id),
-            "name":          p.get("name", "Unknown"),
-            "phone":         p.get("phone"),
-            "village":       p.get("village"),
+            "patient_id":     str(patient_id),
+            "name":           p.get("name", "Unknown"),
+            "phone":          p.get("phone"),
+            "village":        p.get("village"),
             "priority_score": priority_score,
-            "risk_level":    display_risk_level,
-            "reason":        reason,
-            "days_overdue":  days_overdue if days_overdue < 999 else 0,
+            "risk_level":     display_risk_level,
+            "reason":         reason,
+            "days_overdue":   days_overdue,
             "adherence_rate": round(adherence_rate, 1),
-            "age":           int(p.get("age") or 0),
+            "age":            int(p.get("age") or 0),
             "emergency_flag": emergency_flag,
         })
 

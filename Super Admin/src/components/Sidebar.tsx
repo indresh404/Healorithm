@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, QrCode, Activity, Map as MapIcon, AlertTriangle, TrendingUp, Package, UserCheck, X } from 'lucide-react';
+import { LayoutDashboard, Users, Activity, Map as MapIcon, AlertTriangle, TrendingUp, Package, UserCheck, X } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -16,7 +16,6 @@ const navItems = [
   { icon: Package, label: 'Resources', path: '/resources' },
   { icon: UserCheck, label: 'Workers', path: '/workers' },
   { icon: Users, label: 'Patients', path: '/users' },
-  { icon: QrCode, label: 'Scan QR', path: '/scan' },
 ];
 
 interface SidebarProps {

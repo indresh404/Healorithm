@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import UsersList from './pages/UsersList';
-import Scanner from './pages/Scanner';
 import UserDetails from './pages/UserDetails';
 import HealthMapPage from './pages/HealthMapPage';
 import OutbreaksPage from './pages/OutbreaksPage';
@@ -23,7 +22,6 @@ export default function App() {
           <Route path="resources" element={<ResourcesPage />} />
           <Route path="workers" element={<WorkersPage />} />
           <Route path="users" element={<UsersList />} />
-          <Route path="scan" element={<Scanner />} />
           <Route path="user/:id" element={<UserDetails />} />
         </Route>
       </Routes>

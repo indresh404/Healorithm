@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, HealthAnalytics } from '../types';
-import { Users, QrCode, ChevronRight, Loader2, AlertTriangle, Activity, Clock, UserCheck, ShieldAlert, ShieldCheck, TrendingUp } from 'lucide-react';
+import { Users, ChevronRight, Loader2, AlertTriangle, Activity, Clock, UserCheck, ShieldAlert, ShieldCheck, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 
@@ -89,13 +89,6 @@ export default function Dashboard() {
           <h2 className="text-2xl font-bold text-slate-900">Admin Dashboard</h2>
           <p className="text-slate-500">Welcome back, here's what's happening today.</p>
         </div>
-        <Link
-          to="/scan"
-          className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-        >
-          <QrCode className="w-5 h-5" />
-          Scan QR Code
-        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">

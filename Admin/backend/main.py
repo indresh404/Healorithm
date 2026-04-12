@@ -22,6 +22,7 @@ from config import ADMIN_API_PORT
 from db import supabase_client as db
 from routes import patient as patient_router
 from routes import visit as visit_router
+from routes import debug as debug_router
 
 # ─── Logging ─────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -94,6 +95,7 @@ API_PREFIX = "/api/admin"
 
 app.include_router(patient_router.router, prefix=API_PREFIX)
 app.include_router(visit_router.router,   prefix=API_PREFIX)
+app.include_router(debug_router.router,   prefix=API_PREFIX)
 
 
 # ─── Auth endpoint ────────────────────────────────────────────────────────────

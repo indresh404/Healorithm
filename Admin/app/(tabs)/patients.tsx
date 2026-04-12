@@ -24,7 +24,7 @@ export default function Patients() {
   const [showAI, setShowAI] = useState(true);
 
   useEffect(() => {
-    if (backendOnline) loadPrioritizedPatients();
+    loadPrioritizedPatients();
   }, [backendOnline]);
 
   useEffect(() => {

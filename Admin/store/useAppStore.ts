@@ -90,16 +90,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   checkBackend: async () => {
     try {
       const res = await adminApi.health();
-      const online = res?.status === 'healthy';
+      const online = res?.status === 'healthy' || res?.status === 'degraded';
       set({ backendOnline: online });
-      if (online) get().loadPrioritizedPatients();
     } catch {
       set({ backendOnline: false });
     }
   },
 
   loadPrioritizedPatients: async () => {
-    const workerId = get().currentWorker?.id ?? 'w1';
+    const workerId = get().currentWorker?.id;
+    if (!workerId) {
+      set({ isPrioritizing: false, priorityError: null });
+      return;
+    }
     set({ isPrioritizing: true, priorityError: null });
     try {
       const res = await adminApi.getPrioritizedList(workerId);
