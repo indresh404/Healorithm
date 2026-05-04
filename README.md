@@ -130,9 +130,7 @@ React Admin Dashboard
 
 ---
 
-## 🏷️ Topics
 
-rural-healthcare, offline-first, health-tech, flutter, fastapi, ai-healthcare, machine-learning, qr-code-system, public-health, health-monitoring, postgis, emergency-detection, iot-health, digital-health, health-dashboard
 
 ---
 
