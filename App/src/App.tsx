@@ -23,6 +23,7 @@ import WorkerDirectory from './pages/worker/WorkerDirectory';
 import WorkerPINLock from './pages/worker/WorkerPINLock';
 import WorkerSyncCenter from './pages/worker/WorkerSyncCenter';
 import WorkerPatientProfile from './pages/worker/WorkerPatientProfile';
+import WorkerVisitForm from './pages/worker/WorkerVisitForm';
 
 // Patient Pages
 import PatientLayout from './pages/patient/PatientLayout';
@@ -76,6 +77,7 @@ export default function AppPWA() {
         <Route path="pin" element={<WorkerPINLock />} />
         <Route path="sync" element={<WorkerSyncCenter />} />
         <Route path="patient/:id" element={<WorkerPatientProfile />} />
+        <Route path="visit" element={<WorkerVisitForm />} />
       </Route>
 
       {/* Patient Portal (Protected) */}

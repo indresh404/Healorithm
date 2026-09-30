@@ -34,3 +34,10 @@ __pycache__/
 *$py.class
 venv/
 .venv/
+# Local database
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated PWA development files
+**/dev-dist/

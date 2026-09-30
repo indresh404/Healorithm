@@ -10,6 +10,7 @@ export interface SyncStats {
   totalSyncedCount: number;
   status: 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
   pendingCount: number;
+  failedCount: number;
 }
 
 class SyncEngine {
@@ -18,23 +19,23 @@ class SyncEngine {
     bytesSentLastSync: 0,
     totalSyncedCount: 0,
     status: 'idle',
-    pendingCount: 0
+    pendingCount: 0,
+    failedCount: 0,
   };
   private listeners: Set<(stats: SyncStats) => void> = new Set();
-  private isRunning: boolean = false;
+  private isRunning = false;
+  private readonly BACKEND_URL = 'http://127.0.0.1:8000/sync/push';
+  private readonly MAX_ATTEMPTS = 5;
 
   constructor() {
     this.updatePendingCount();
-    // Auto-sync when reconnecting
     networkManager.subscribe((mode) => {
-      if (mode === 'online') {
-        this.runSync();
-      }
+      if (mode === 'online') this.runSync();
     });
   }
 
   private notify() {
-    this.listeners.forEach(cb => cb({ ...this.stats }));
+    this.listeners.forEach((cb) => cb({ ...this.stats }));
   }
 
   public subscribe(cb: (stats: SyncStats) => void): () => void {
@@ -44,9 +45,42 @@ class SyncEngine {
   }
 
   public async updatePendingCount() {
-    const count = await db.outbox.filter(item => item.status === 'pending').count();
-    this.stats.pendingCount = count;
+    const pending = await db.outbox.filter((i) => i.status === 'pending').count();
+    const failed = await db.outbox.filter((i) => i.status === 'failed').count();
+    this.stats.pendingCount = pending;
+    this.stats.failedCount = failed;
     this.notify();
+  }
+
+  /**
+   * POSTs one outbox record to the backend.
+   * Returns true if the server acknowledged it (2xx).
+   */
+  private async postRecord(record: EncryptedOutboxRecord): Promise<boolean> {
+    try {
+      const body = JSON.stringify({
+        records: [
+          {
+            id: record.id,
+            table_name: record.table_name,
+            record_id: record.record_id,
+            action: record.action,
+            priority: record.priority,
+            payload_cipher: record.payload_cipher,
+            timestamp: record.timestamp,
+          },
+        ],
+      });
+      const res = await fetch(this.BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        signal: AbortSignal.timeout(15000),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
 
   public async runSync(): Promise<{ syncedCount: number; bytesSent: number }> {
@@ -61,8 +95,13 @@ class SyncEngine {
     this.stats.status = 'syncing';
     this.notify();
 
+    let syncedCount = 0;
+    let bytesSent = 0;
+
     try {
-      const allPending = await db.outbox.filter(item => item.status === 'pending').toArray();
+      const allPending = await db.outbox
+        .filter((i) => i.status === 'pending')
+        .toArray();
       const sorted = sortOutboxByPriority(allPending);
 
       if (sorted.length === 0) {
@@ -72,31 +111,46 @@ class SyncEngine {
         return { syncedCount: 0, bytesSent: 0 };
       }
 
-      // Prepare delta batch
-      const compressedBatch = compressGzipPayload(sorted);
-      const bytesSent = compressedBatch.length;
+      for (const record of sorted) {
+        await db.outbox.update(record.id, { status: 'syncing' });
+        const ok = await this.postRecord(record);
 
-      // Simulated network sync delay
-      await new Promise(res => setTimeout(res, 1200));
+        if (ok) {
+          await db.outbox.delete(record.id);
+          syncedCount++;
+          bytesSent += compressGzipPayload(record.payload_cipher).length;
+        } else {
+          const newAttempts = (record.attempts || 0) + 1;
+          if (newAttempts >= this.MAX_ATTEMPTS) {
+            await db.outbox.update(record.id, {
+              status: 'failed',
+              attempts: newAttempts,
+              last_error: `Permanently failed after ${newAttempts} attempts`,
+            });
+          } else {
+            await db.outbox.update(record.id, {
+              status: 'pending',
+              attempts: newAttempts,
+              last_error: `Attempt ${newAttempts} failed`,
+            });
+          }
+        }
+      }
 
-      // Acknowledge records and delete from outbox transactionally
-      const idsToDelete = sorted.map(s => s.id);
-      await db.outbox.bulkDelete(idsToDelete);
-
+      await this.updatePendingCount();
       this.stats.lastSyncTime = new Date().toISOString();
       this.stats.bytesSentLastSync = bytesSent;
-      this.stats.totalSyncedCount += sorted.length;
-      this.stats.status = 'synced';
-      this.stats.pendingCount = 0;
+      this.stats.totalSyncedCount += syncedCount;
+      this.stats.status = this.stats.pendingCount > 0 ? 'error' : 'synced';
       this.isRunning = false;
       this.notify();
 
-      return { syncedCount: sorted.length, bytesSent };
+      return { syncedCount, bytesSent };
     } catch (e) {
-      console.error('Sync failure, retrying with backoff:', e);
+      console.error('[SyncEngine] Unhandled error:', e);
       this.stats.status = 'error';
       this.isRunning = false;
-      this.notify();
+      await this.updatePendingCount();
       return { syncedCount: 0, bytesSent: 0 };
     }
   }

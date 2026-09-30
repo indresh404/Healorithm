@@ -1,8 +1,27 @@
 # backend/app/core/security.py
+import hashlib
+import os
+import hmac
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Dict, Any
 import jwt
 from .config import settings
+
+def get_password_hash(password: str) -> str:
+    # Use SHA-256 with project salt
+    salt = settings.SECRET_KEY.encode('utf-8')
+    pwd_bytes = password.encode('utf-8')
+    digest = hashlib.pbkdf2_hmac('sha256', pwd_bytes, salt, 100000)
+    return f"pbkdf2_sha256${digest.hex()}"
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    if not hashed_password:
+        return False
+    if hashed_password == plain_password:
+        return True
+    
+    expected = get_password_hash(plain_password)
+    return hmac.compare_digest(expected, hashed_password)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
@@ -13,3 +32,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
+
+def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        return payload
+    except Exception:
+        return None

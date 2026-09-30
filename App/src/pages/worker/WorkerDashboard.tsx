@@ -168,17 +168,24 @@ export default function WorkerDashboard() {
                     <Volume2 className="w-4 h-4 text-emerald-600" />
                   </button>
 
-                  <button
-                    onClick={() => {
-                      store.setActivePatient(patient.id);
-                    }}
-                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
+                  <Link
+                    to={`/worker/patient/${patient.id}`}
+                    onClick={() => store.setActivePatient(patient.id)}
+                    className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                    title="View Full Patient Dossier"
                   >
-                    <Link to="/worker/vitals" className="flex items-center gap-1.5">
-                      <Activity className="w-3.5 h-3.5" />
-                      <span>Examine Patient</span>
-                    </Link>
-                  </button>
+                    <Users className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Dossier</span>
+                  </Link>
+
+                  <Link
+                    to="/worker/vitals"
+                    onClick={() => store.setActivePatient(patient.id)}
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
+                  >
+                    <Activity className="w-3.5 h-3.5" />
+                    <span>Examine</span>
+                  </Link>
                 </div>
               </div>
             );

@@ -10,7 +10,8 @@ export default function SyncBanner() {
     bytesSentLastSync: 0,
     totalSyncedCount: 0,
     status: 'idle',
-    pendingCount: 0
+    pendingCount: 0,
+    failedCount: 0,
   });
   const [mode, setMode] = useState<NetworkMode>(networkManager.getMode());
 
