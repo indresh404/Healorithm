@@ -37,6 +37,16 @@ export interface EncryptedOutboxRecord {
   last_error?: string;
 }
 
+export interface EncryptedConflictRecord {
+  id: string;
+  table_name: string;
+  record_id: string;
+  local_value: string;
+  remote_value: string;
+  status: 'unresolved' | 'resolved';
+  created_at: string;
+}
+
 export interface DiaryRecord {
   id?: number;
   patient_id: string;
@@ -63,6 +73,7 @@ export class HealorithmDatabase extends Dexie {
   patients!: Table<EncryptedPatientRecord, string>;
   visits!: Table<EncryptedVisitRecord, string>;
   outbox!: Table<EncryptedOutboxRecord, string>;
+  conflicts!: Table<EncryptedConflictRecord, string>;
   diary!: Table<DiaryRecord, number>;
   reports!: Table<JanAushadhiReportRecord, string>;
 
@@ -72,6 +83,7 @@ export class HealorithmDatabase extends Dexie {
       patients: 'id, qr_id, village, household_id, risk_score, is_emergency, updated_at',
       visits: 'id, patient_id, visit_date, worker_id, sync_status, created_at',
       outbox: 'id, table_name, record_id, status, priority, timestamp',
+      conflicts: 'id, table_name, record_id, status, created_at',
       diary: '++id, [patient_id+date], patient_id, date, synced',
       reports: 'id, patient_id, doctor_id, delivery_status, version, date_issued'
     });

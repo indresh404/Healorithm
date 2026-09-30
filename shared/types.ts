@@ -4,7 +4,7 @@ export type LanguageCode = 'en' | 'hi' | 'mr';
 
 export interface Patient {
   id: string; // client UUID or u-xxx
-  qr_id: string; // scanned QR payload (matches id or short token)
+  qr_id?: string; // scanned QR payload (matches id or short token)
   name: string;
   age: number;
   gender: string;
@@ -28,7 +28,7 @@ export type User = Patient;
 
 export interface Vitals {
   id?: string;
-  patient_id: string;
+  patient_id?: string;
   visit_id?: string;
   systolic_bp?: number;
   diastolic_bp?: number;
@@ -36,28 +36,35 @@ export interface Vitals {
   temperature?: number;
   heart_rate?: number;
   blood_glucose?: number;
-  recorded_at: string;
-  recorded_by: string; // worker or doctor id
+  recorded_at?: string;
+  recorded_by?: string; // worker or doctor id
   is_emergency?: boolean;
   emergency_reason?: string;
 }
 
 export interface Visit {
   id: string;
-  patient_id: string;
-  patient_name: string;
-  visit_date: string;
-  worker_id: string;
-  worker_name: string;
-  village: string;
+  patient_id?: string;
+  user_id?: string; // backward compat alias for patient_id
+  patient_name?: string;
+  visit_date?: string;
+  date?: string; // backward compat alias for visit_date
+  worker_id?: string;
+  worker_name?: string;
+  doctor?: string;
+  hospital?: string;
+  village?: string;
   report_type: string;
+  status?: string;
   provisional_diagnosis?: string;
   details: string;
   symptoms: string[];
-  affected_body_zones: string[];
+  affected_body_zones?: string[];
   vitals?: Vitals;
-  sync_status: 'synced' | 'pending' | 'conflict';
+  icon?: string;
+  sync_status?: 'synced' | 'pending' | 'conflict';
   created_at: string;
+  created_by?: string;
 }
 
 // Backward-compatible alias
@@ -124,6 +131,9 @@ export interface Prescription {
   generic_price?: number;
   savings?: number;
   brand_reason?: string;
+  doctor_name?: string;
+  date?: string;
+  medicines?: Array<{ name: string; dosage?: string }>;
   created_at: string;
 }
 
@@ -176,18 +186,23 @@ export interface GovernmentScheme {
 }
 
 export interface Referral {
-  id: string;
-  user_id: string;
-  patient_name: string;
-  village: string;
-  priority: 'Emergency' | 'Urgent' | 'Routine';
-  specialty: string;
-  target_response_time: string;
-  risk_score: number;
-  top_factors: string[];
-  status: 'Created' | 'Synced' | 'Accepted' | 'Completed' | 'Rejected';
-  worker_name: string;
-  created_at: string;
+  id?: string;
+  patient_id?: string;
+  user_id?: string;
+  patient_name?: string;
+  village?: string;
+  target_facility?: string;
+  priority?: 'Emergency' | 'Urgent' | 'Routine';
+  specialty?: string;
+  specialty_required?: string;
+  reason?: string;
+  target_response_time?: string;
+  risk_score?: number;
+  top_factors?: string[];
+  status?: 'pending' | 'Created' | 'Synced' | 'Accepted' | 'Completed' | 'Rejected' | string;
+  worker_id?: string;
+  worker_name?: string;
+  created_at?: string;
   doctor_notes?: string;
 }
 

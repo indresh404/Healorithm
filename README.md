@@ -1,161 +1,152 @@
-# Healorithm v2.0
+# Healorithm-v2: Offline-First Rural Telemedicine & Clinical Triage System
 
-> **Healthcare that keeps working offline, and remembers when it reconnects.**  
-> *An offline-first, encrypted, AI-assisted Progressive Web App for rural telemedicine and primary care triage.*
+An offline-first, encrypted, deterministic clinical risk triage and Jan Aushadhi generic mapping platform designed for rural healthcare workers (ASHA/ANM), rural patients, and district doctors.
 
 ---
 
-## 📂 Architecture & Folder Structure
+## 🏗️ Architecture & Clean Monorepo Structure
 
 ```
 Healorithm-v2/
-├── Admin/                     # Doctor & District Super Admin Web Dashboard (Online/Telemedicine)
+├── .gitignore
+├── README.md                 # Complete setup and developer documentation
+├── package.json              # Monorepo root scripts
+├── shared/                   # Pure TypeScript engines and single-source-of-truth
+│   ├── types.ts              # Unified domain interfaces (Patient, Visit, Vitals, Referral, Jan Aushadhi)
+│   ├── clinicalRiskEngine.ts # Deterministic emergency detection + 0-100 explainable score
+│   ├── janAushadhiCatalog.ts # PMBJP generic catalog, savings calculator & schemes
+│   ├── qrProtocol.ts         # Multi-frame animated QR zero-signal sequence protocol
+│   ├── schemeRules.ts        # Ayushman Bharat (PM-JAY), RBSK, State scheme evaluator
+│   ├── translations.ts       # Trilingual UI dictionaries & audio prompts (EN / HI / MR)
+│   └── mockData.ts           # Epidemiological, demographic, and clinical seed data
+├── App/                      # Offline-First PWA (Worker + Patient Portals)
+│   ├── public/               # PWA icons and favicon
 │   ├── src/
-│   │   ├── components/        # HealthMap (Leaflet GIS), Outbreak clusters, Interactive 3D Anatomy Model
-│   │   ├── pages/             # Dashboard, UserDetails, UsersList, Trends, Resources, Workers, Care Agent, Conflicts
-│   │   ├── types/             # Clinical TypeScript interfaces
-│   │   └── lib/               # Storage, Jan Aushadhi generic catalog, risk engine
-│   ├── public/                # Assets & Icons
+│   │   ├── auth/             # Worker PIN lock, role guards, and auth stores
+│   │   ├── crypto/           # Web Crypto PBKDF2 key derivation & AES-GCM 256 encryption
+│   │   ├── db/               # Dexie IndexedDB encrypted schema & atomic repos
+│   │   ├── sync/             # Priority sync, gzip compression, backoff & network monitor
+│   │   ├── risk/             # React hooks for real-time offline risk evaluation
+│   │   ├── referral/         # Deterministic referral facility generator
+│   │   ├── components/       # Lightweight 2D anatomical picker, sync banners & badges
+│   │   └── pages/
+│   │       ├── worker/       # Solid Green theme field worker triage, vitals, scanner
+│   │       ├── patient/      # Simple Blue theme patient health card, diary, savings
+│   │       └── AboutPage.tsx
+│   ├── package.json
+│   ├── vite.config.ts        # Vite + VitePWA (Workbox offline service worker)
+│   └── tsconfig.json
+├── Admin/                    # Doctor & District Super Admin Web Dashboard
+│   ├── public/               # Admin favicon & assets
+│   ├── src/
+│   │   ├── api/              # Axios API client and endpoint definitions
+│   │   ├── auth/             # Doctor authentication and auth store
+│   │   ├── components/       # AI Loader orb, risk badges, factor bars, headers
+│   │   └── pages/            # GIS Leaflet health map, outbreaks, trends, referrals, generic review
 │   ├── package.json
 │   ├── vite.config.ts
 │   └── tsconfig.json
-│
-├── App/                       # Offline-First Progressive Web App (PWA)
-│   ├── src/
-│   │   ├── pages/
-│   │   │   ├── worker/        # Health Worker App (Crisp Green Theme #059669 / #10b981)
-│   │   │   │   ├── WorkerDashboard.tsx       # Daily visit queue sorted High-Risk first
-│   │   │   │   ├── WorkerScanner.tsx         # Instant QR card lookup (~2s)
-│   │   │   │   ├── WorkerNewPatient.tsx      # Household tagging & demographics
-│   │   │   │   ├── WorkerVitalsEntry.tsx     # 3D/2D symptom picker, deterministic emergency & risk score
-│   │   │   │   ├── WorkerZeroSignalHandoff.tsx # Multi-frame QR sequence receiver & assembler
-│   │   │   │   ├── WorkerDirectory.tsx       # Cached offline emergency contacts
-│   │   │   │   └── WorkerPINLock.tsx         # PBKDF2 AES-GCM local DB encryption unlock
-│   │   │   ├── patient/       # Patient App (Crisp Clean Blue Theme #2563eb / #1d4ed8)
-│   │   │   │   ├── PatientDashboard.tsx      # Digital QR Health Card, Today's medicine tracker
-│   │   │   │   ├── PatientAdherenceDiary.tsx # 7-day adherence streak & dose check-off
-│   │   │   │   ├── PatientJanAushadhiReport.tsx # Doctor-confirmed generic substitution savings
-│   │   │   │   ├── PatientZeroSignalExport.tsx # Multi-frame animated QR sequence transmitter
-│   │   │   │   ├── PatientConsentManager.tsx  # Approve/Deny data sharing permissions
-│   │   │   │   └── PatientSOS.tsx            # 1-tap SMS generator & 108 emergency dialer
-│   │   │   └── about/         # Interactive Architecture & System Walkthrough
-│   │   ├── components/        # Interactive 3D Body, QR Protocols, Multilingual Speech Synthesizer
-│   │   └── lib/               # Offline storage & IndexedDB encryption
-│   ├── public/
-│   │   ├── manifest.json      # PWA Web App Manifest
-│   │   ├── sw.js              # Service Worker for 100% offline static caching
-│   │   └── favicon.svg
-│   ├── package.json
-│   └── vite.config.ts
-│
-├── backend/                   # FastAPI Server (Endpoints, DBSCAN Outbreak Clustering, Real-Time Sync)
-│   ├── app/
-│   │   ├── api/               # Sync endpoints, Patient routes, Outbreak clusters
-│   │   ├── core/              # Security, AES-GCM utilities, config
-│   │   ├── models/            # SQLAlchemy / PostGIS schemas
-│   │   ├── schemas/           # Pydantic validation schemas
-│   │   └── main.py            # FastAPI entry point
-│   └── requirements.txt       # Python dependencies
-│
-├── shared/                    # Unified Core Logic & Clinical Database
-│   ├── types.ts               # Shared TypeScript schemas
-│   ├── clinicalRiskEngine.ts  # Deterministic emergency detection & 0-100 explainable risk calculator
-│   ├── janAushadhiCatalog.ts  # Generic equivalent price catalog & government schemes matcher
-│   └── qrProtocol.ts          # Zero-signal multi-frame QR sequence encoder/decoder with checksums
-│
-├── package.json               # Root Workspace & Monorepo runner
-└── README.md                  # Comprehensive Documentation
+└── backend/                  # FastAPI Backend (schemas, routers, services, config)
+    ├── README.md
+    ├── requirements.txt
+    ├── .env.example
+    └── app/
 ```
 
 ---
 
-## 🎨 Theme & Color Palette Rules
+## 🚀 Quick Start Guide & Setup Commands
 
-- **Worker App**: **Solid Green Palette** (`#059669` Emerald-600 / `#047857` Emerald-700). High contrast, large touch targets, designed for field outdoor visibility.
-- **Patient App**: **Simple Clean Blue Palette** (`#2563eb` Blue-600 / `#1d4ed8` Blue-700). Low-literacy friendly, large touch icons, voice audio reading in Hindi, Marathi, and English.
-- **Doctor / Super Admin**: Crisp White & Slate Palette with Blue accents matching the original `Healorithm/Super Admin` layout, integrated with the **Interactive 3D Anatomical Body Model** from `Swasthya-AI`.
-- **Zero Gradients**: Pure solid colors, crisp borders (`border-slate-200`), subtle modern drop shadows (`shadow-xs`), and smooth CSS/Framer Motion transitions.
+### 1. Install All Dependencies
 
----
+Install dependencies across both `App/` and `Admin/` directly from root:
 
-## ⚡ Key Capabilities
-
-### 1. Offline is the Default, Not a Fallback
-- All core functions—patient lookup, vitals entry, 3D anatomical symptom mapping, deterministic emergency alerts, and 0-100 explainable risk scores—run entirely on the local device via IndexedDB and local storage.
-- Operates in zero-signal environments with automatic background synchronization when a connection appears.
-
-### 2. Deterministic AI Risk vs Human Diagnosis
-- **Deterministic Emergency Detection**: Fixed medical criteria (e.g., BP $\ge 180/120$, $\text{SpO}_2 < 90\%$, acute chest pain with breathlessness, glucose $> 380\text{ mg/dL}$) trigger emergency escalations immediately without probabilistic model guessing.
-- **Explainable 0–100 Risk Score**: Transparently combines age, chronic comorbidities, vital sign deviations, adherence history, missed visits, and symptom severity, displaying the top contributing factors.
-- **Prioritize, Never Diagnose**: The system flags risk and triages queues (Emergency, Urgent, Routine); the human doctor always decides the diagnosis.
-
-### 3. Care Coordination Agent
-- Autonomous server-side agent that observes incoming sync records, identifies missing parameters (e.g., missing BP on cardiac patients), creates follow-up tasks for the worker's next visit, escalates high-risk cases to attending doctors, and tracks action completion.
-- Agent Loop: **Observe → Analyze → Recommend → Ask/Act → Escalate → Record**.
-
-### 4. Doctor-Confirmed Jan Aushadhi Report Engine
-- Shows cheaper generic bio-equivalents and approximate savings for every prescribed medicine.
-- Doctor approves line-by-line (*Generic approved*, *Keep brand*, *Not available*).
-- Certified report with delivery tracking (*Confirmed → Delivered → Seen*) syncs offline to the patient's phone.
-
-### 5. Zero-Signal Encrypted QR-Sequence Handoff
-- When a patient's phone has never had internet signal, their encrypted 7-day adherence diary and vitals are transferred directly to the health worker's app as a numbered, animated sequence of QR code frames verified by CRC checksums.
-
-### 6. District Epidemiological GIS Map & DBSCAN Outbreaks
-- Interactive Leaflet map displaying village risk densities, field worker routes, and active outbreak clusters.
-- Spatial-temporal clustering flags outbreaks when $\ge 8$ patients within a 15 km radius report matching symptoms within 48–72 hours.
-
----
-
-## 🚀 Running the Project
-
-### Prerequisites
-- Node.js (v18+)
-- npm (v9+)
-
-### Installation
 ```bash
-# Clone or navigate to the project directory
-cd Healorithm-v2
+# Using root monorepo script:
+npm run install:all
 
-# Install dependencies
-npm install --legacy-peer-deps
+# Or manually in each directory:
+cd App && npm install
+cd ../Admin && npm install
 ```
 
-### Running the Apps
+---
 
-#### 1. Unified Hub (Runs everything together on port 3000)
+### 2. Run the Applications
+
+#### 🟢 Run Health Worker & Patient PWA (`App/`)
+Runs on `http://localhost:3000` with offline PWA service worker and IndexedDB encryption:
+
 ```bash
+# From root directory:
+npm run app
+
+# Or from App directory:
+cd App
 npm run dev
 ```
-Navigate to:
-- **Doctor / Super Admin Dashboard**: `http://localhost:3000/admin`
-- **Health Worker App (Green Theme)**: `http://localhost:3000/worker`
-- **Patient QR Card App (Blue Theme)**: `http://localhost:3000/patient`
-- **Interactive About Page**: `http://localhost:3000/about`
 
-#### 2. Running Admin Dashboard Standalone (Port 3001)
+- **Health Worker Portal (Solid Green Theme)**: `http://localhost:3000/worker`
+  - Dashboard: `/worker`
+  - Register New Patient: `/worker/new`
+  - Record Vitals & 2D Body Symptoms: `/worker/vitals`
+  - QR Health Card Scanner: `/worker/scan`
+  - Zero-Signal Animated QR Transfer: `/worker/zero-signal`
+  - Offline Village Directory: `/worker/directory`
+  - Sync Center: `/worker/sync`
+- **Patient Portal (Simple Blue Theme)**: `http://localhost:3000/patient`
+  - Health Card & QR: `/patient`
+  - Daily Medicine Diary: `/patient/diary`
+  - Jan Aushadhi Savings Receipt: `/patient/savings`
+  - Zero-Signal Export: `/patient/zero-signal`
+  - Consent Manager: `/patient/consent`
+  - Emergency SOS: `/patient/sos`
+- **About Healorithm**: `http://localhost:3000/about`
+
+---
+
+#### 🔵 Run Doctor & District Admin Dashboard (`Admin/`)
+Runs on `http://localhost:3001`:
+
 ```bash
-npm run dev:admin
+# From root directory:
+npm run admin
+
+# Or from Admin directory:
+cd Admin
+npm run dev
 ```
 
-#### 3. Running Worker & Patient PWA Standalone (Port 3000)
-```bash
-npm run dev:app
-```
+- **Doctor Dashboard**: `http://localhost:3001/`
+- **Epidemiological GIS Map**: `http://localhost:3001/map`
+- **Outbreak Cluster Surveillance**: `http://localhost:3001/outbreaks`
+- **Syndromic Trends Monitor**: `http://localhost:3001/trends`
+- **Jan Aushadhi Supply & Pharmacy Inventory**: `http://localhost:3001/resources`
+- **ASHA Workforce Roster**: `http://localhost:3001/workers`
+- **Patient Registry**: `http://localhost:3001/users`
+- **Patient Clinical Dossier & AI Voice Orb**: `http://localhost:3001/users/u-101`
+- **Care Coordination Human-in-the-Loop Agent**: `http://localhost:3001/agent`
+- **Multi-Master Conflict Resolution**: `http://localhost:3001/conflicts`
 
-#### 4. Running the Backend API (FastAPI)
+---
+
+### 3. Production Build & Typecheck Verification
+
+Run full TypeScript compilation and Vite bundling:
+
 ```bash
-cd backend
-pip install -r requirements.txt
-python -m uvicorn app.main:app --reload --port 8000
+# Build App PWA
+npm run app:build
+
+# Build Admin Dashboard
+npm run admin:build
 ```
 
 ---
 
-## 🔒 Security & Data Integrity
+## 🔒 Security & Offline Principles
 
-- **AES-256 GCM**: Device encryption at rest with keys derived from worker PINs via PBKDF2.
-- **Append-Only Clinical History**: Vitals and prescriptions are append-only to prevent silent overwrites.
-- **Clinical Conflict Resolution**: Clashing multi-source diagnoses are held for clinician sign-off rather than arbitrary "last write wins".
-- **Zero Data Loss**: Commits records and outbox queues in single local transactions before acknowledging user actions.
+1. **Deterministic Clinical Risk First**: Immediate deterministic clinical safety rules (e.g. BP $\ge 180/120$, $\text{SpO}_2 < 90\%$, chest pain + breathlessness) immediately trigger emergency flags on-device without model latency.
+2. **Local At-Rest Encryption**: All PWA records in Dexie IndexedDB are encrypted with AES-GCM 256-bit using PBKDF2 derived keys from the worker's PIN.
+3. **Zero-Signal Animated QR Transfer**: Patient diaries and referral snapshots can be transferred device-to-device with multi-frame base64 encoded QR bursts without internet or cellular network connectivity.
+4. **Jan Aushadhi Generic Substitution**: Automatic mapping of prescribed branded medicines to equivalent generic formulations under the Pradhan Mantri Bhartiya Janaushadhi Pariyojana (PMBJP) with savings up to 85%.
