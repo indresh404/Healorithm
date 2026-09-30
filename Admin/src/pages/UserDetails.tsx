@@ -5,6 +5,7 @@ import { User, MedicalRecord, HealthAnalytics, Prescription } from '@shared/type
 import { findJanAushadhiMatch, calculateTotalPrescriptionSavings } from '@shared/janAushadhiCatalog';
 import { playVoicePrompt } from '@shared/translations';
 import { AILoader } from '../components/ui/ai-loader';
+import Interactive3DBody from '../components/body/Interactive3DBody';
 import { 
   ArrowLeft, 
   User as UserIcon, 
@@ -195,55 +196,20 @@ Recommended care coordination action: ${careTasks[0]?.recommended_action || 'Con
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left 7 Columns: 3D Body Model & Clinical History */}
         <div className="lg:col-span-7 space-y-8">
-          {/* 2D Anatomical Triage & Symptom Mapping */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-blue-600" />
-                <h3 className="text-sm font-bold text-slate-900">Anatomical System & Symptoms</h3>
-              </div>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                analytics?.risk_level === 'High' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
-              }`}>
-                {analytics?.risk_level || 'Normal'} Priority
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-              {[
-                { id: 'head', name: 'Head / CNS', color: 'border-red-200 bg-red-50 text-red-700' },
-                { id: 'chest', name: 'Cardiovascular / Heart', color: 'border-rose-200 bg-rose-50 text-rose-700' },
-                { id: 'lungs', name: 'Respiratory / Lungs', color: 'border-amber-200 bg-amber-50 text-amber-700' },
-                { id: 'abdomen', name: 'Gastrointestinal', color: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
-                { id: 'joints', name: 'Musculoskeletal', color: 'border-amber-200 bg-amber-50 text-amber-700' },
-                { id: 'extremities', name: 'Peripheral Circulation', color: 'border-red-200 bg-red-50 text-red-700' },
-              ].map(zone => (
-                <button
-                  key={zone.id}
-                  onClick={() => setSelectedBodyZone(zone.id)}
-                  className={`p-3 rounded-xl border text-left font-bold transition-all ${
-                    selectedBodyZone === zone.id 
-                      ? 'border-blue-600 bg-blue-50 text-blue-900 ring-2 ring-blue-500/20' 
-                      : `${zone.color} hover:opacity-80`
-                  }`}
-                >
-                  {zone.name}
-                </button>
-              ))}
-            </div>
-
-            {records[0]?.symptoms && records[0].symptoms.length > 0 && (
-              <div className="pt-2">
-                <span className="text-[11px] font-bold text-slate-400 uppercase block mb-1.5">Active Tagged Symptoms</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {records[0].symptoms.map((symptom, i) => (
-                    <span key={i} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold">
-                      • {symptom}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+          {/* Interactive 3D Human Anatomical Body Model & Symptom Mapping */}
+          <div className="space-y-4">
+            <Interactive3DBody
+              selectedSystem={selectedBodyZone || 'All'}
+              onSystemSelect={(sys) => setSelectedBodyZone(sys.toLowerCase())}
+              activeSymptoms={records[0]?.symptoms || []}
+              patientName={user.name}
+              patientVitals={{
+                spo2: analytics?.spo2 || 96,
+                bp: `${analytics?.systolic_bp || 120}/${analytics?.diastolic_bp || 80}`,
+                pulse: analytics?.heart_rate || 78,
+                temp: 98.6
+              }}
+            />
           </div>
 
           {/* Vitals Summary Row */}

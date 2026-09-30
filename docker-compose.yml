@@ -1,0 +1,123 @@
+# Healorithm-v2 Production & Development Docker Compose Architecture
+# Specification: Offline-first, Encrypted, Self-Hosted Rural Telemedicine Monorepo
+
+version: '3.8'
+
+services:
+  # 1. PostgreSQL + PostGIS (Authoritative Source of Truth)
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: healorithm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-healorithm}
+      POSTGRES_USER: ${POSTGRES_USER:-healorithm_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-healorithm_secure_pwd_2026}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-healorithm_admin} -d ${POSTGRES_DB:-healorithm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - healorithm-net
+
+  # 2. FastAPI Central Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: healorithm-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-healorithm_admin}:${POSTGRES_PASSWORD:-healorithm_secure_pwd_2026}@postgres:5432/${POSTGRES_DB:-healorithm}
+      JWT_SECRET: ${JWT_SECRET:-healorithm_jwt_super_secret_key_2026}
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 10080 # 7 days offline-friendly token
+      ENVIRONMENT: production
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:3001"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - healorithm-net
+
+  # 3. Patient & Health Worker PWA Surface (App)
+  app:
+    build:
+      context: .
+      dockerfile: App/Dockerfile
+    container_name: healorithm-pwa
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - healorithm-net
+
+  # 4. Doctor & District Admin Dashboard Surface (Admin)
+  admin:
+    build:
+      context: .
+      dockerfile: Admin/Dockerfile
+    container_name: healorithm-admin
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend
+    networks:
+      - healorithm-net
+
+  # -------------------------------------------------------------
+  # OPTIONAL / PHASE 2 SERVICES (Enabled via `docker compose --profile full up`)
+  # -------------------------------------------------------------
+
+  # 5. Neo4j Graph Database (Optional Phase 2 Relationship Insights)
+  neo4j:
+    image: neo4j:5.18-community
+    container_name: healorithm-neo4j
+    restart: unless-stopped
+    profiles:
+      - full
+    environment:
+      NEO4J_AUTH: neo4j/healorithm_graph_pwd
+    ports:
+      - "7474:7474" # HTTP Browser
+      - "7687:7687" # Bolt Protocol
+    volumes:
+      - neo4j_data:/data
+    networks:
+      - healorithm-net
+
+  # 6. Ollama Local LLM (Optional Non-Critical Summaries)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: healorithm-ollama
+    restart: unless-stopped
+    profiles:
+      - full
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - healorithm-net
+
+volumes:
+  postgres_data:
+    driver: local
+  neo4j_data:
+    driver: local
+  ollama_models:
+    driver: local
+
+networks:
+  healorithm-net:
+    driver: bridge

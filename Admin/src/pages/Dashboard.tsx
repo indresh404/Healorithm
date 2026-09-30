@@ -83,14 +83,14 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            to="/admin/agent"
+            to="/agent"
             className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-bold shadow-sm shadow-blue-200 flex items-center gap-2 transition-all"
           >
             <Bot className="w-4 h-4" />
             <span>Care Agent Queue ({snapshot.careTasks.filter(t => t.status === 'pending').length})</span>
           </Link>
           <Link
-            to="/admin/map"
+            to="/map"
             className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all"
           >
             <Activity className="w-4 h-4 text-blue-600" />
@@ -225,7 +225,7 @@ export default function Dashboard() {
                 <h3 className="text-lg font-bold text-slate-900">Ranked Referral Triage Queue</h3>
                 <p className="text-xs text-slate-500">Prioritized on-device by explainable risk score & danger signs</p>
               </div>
-              <Link to="/admin/users" className="text-blue-600 text-xs font-bold uppercase tracking-widest hover:underline">
+              <Link to="/users" className="text-blue-600 text-xs font-bold uppercase tracking-widest hover:underline">
                 View All
               </Link>
             </div>
@@ -255,7 +255,7 @@ export default function Dashboard() {
 
                   <div className="flex items-center gap-2">
                     <Link
-                      to={`/admin/users/${ref.user_id}`}
+                      to={`/users/${ref.user_id}`}
                       className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
                     >
                       Review Case
@@ -306,7 +306,7 @@ export default function Dashboard() {
             </div>
 
             <Link
-              to="/admin/agent"
+              to="/agent"
               className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-xs"
             >
               <span>Open Care Coordination Console</span>
@@ -318,7 +318,7 @@ export default function Dashboard() {
           <section className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-bold text-slate-900">Village Risk Density</h3>
-              <Link to="/admin/map" className="text-blue-600 text-xs font-bold hover:underline">Map</Link>
+              <Link to="/map" className="text-blue-600 text-xs font-bold hover:underline">Map</Link>
             </div>
 
             <div className="space-y-3">

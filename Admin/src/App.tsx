@@ -7,6 +7,8 @@ import AdminDashboard from './pages/Dashboard';
 import HealthMapPage from './pages/HealthMapPage';
 import OutbreaksPage from './pages/OutbreaksPage';
 import TrendsPage from './pages/TrendsPage';
+import ReferralQueuePage from './pages/ReferralQueuePage';
+import PrescriptionReviewPage from './pages/PrescriptionReviewPage';
 import ResourcesPage from './pages/ResourcesPage';
 import WorkersPage from './pages/WorkersPage';
 import UsersList from './pages/UsersList';
@@ -22,6 +24,8 @@ export default function AdminApp() {
         <Route path="map" element={<HealthMapPage />} />
         <Route path="outbreaks" element={<OutbreaksPage />} />
         <Route path="trends" element={<TrendsPage />} />
+        <Route path="referrals" element={<ReferralQueuePage />} />
+        <Route path="prescriptions" element={<PrescriptionReviewPage />} />
         <Route path="resources" element={<ResourcesPage />} />
         <Route path="workers" element={<WorkersPage />} />
         <Route path="users" element={<UsersList />} />
