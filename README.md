@@ -1,16 +1,16 @@
-# Healorithm-v2: Offline-First Rural Telemedicine & Clinical Triage System
+# Healorithm-v2: Offline-First Rural Telemedicine & Clinical Triage PWA
 
-An offline-first, encrypted, deterministic clinical risk triage and Jan Aushadhi generic mapping platform designed for rural healthcare workers (ASHA/ANM), rural patients, and district doctors.
+An offline-first, encrypted, deterministic clinical risk triage and Jan Aushadhi generic mapping platform designed for rural healthcare workers (ASHA/ANM) and rural patients, with an independent web dashboard for district doctors.
 
 ---
 
-## 🏗️ Architecture & Clean Monorepo Structure
+## 🏗️ Architecture & Clean Structure
 
 ```
 Healorithm-v2/
 ├── .gitignore
 ├── README.md                 # Complete setup and developer documentation
-├── package.json              # Monorepo root scripts
+├── package.json              # Workspace runner scripts
 ├── shared/                   # Pure TypeScript engines and single-source-of-truth
 │   ├── types.ts              # Unified domain interfaces (Patient, Visit, Vitals, Referral, Jan Aushadhi)
 │   ├── clinicalRiskEngine.ts # Deterministic emergency detection + 0-100 explainable score
@@ -19,102 +19,90 @@ Healorithm-v2/
 │   ├── schemeRules.ts        # Ayushman Bharat (PM-JAY), RBSK, State scheme evaluator
 │   ├── translations.ts       # Trilingual UI dictionaries & audio prompts (EN / HI / MR)
 │   └── mockData.ts           # Epidemiological, demographic, and clinical seed data
-├── App/                      # Offline-First PWA (Worker + Patient Portals)
+├── App/                      # Offline-First PWA (Worker & Patient Portals)
 │   ├── public/               # PWA icons and favicon
 │   ├── src/
-│   │   ├── auth/             # Worker PIN lock, role guards, and auth stores
+│   │   ├── auth/             # Login & Registration for Worker and Patient + Role Guards
 │   │   ├── crypto/           # Web Crypto PBKDF2 key derivation & AES-GCM 256 encryption
 │   │   ├── db/               # Dexie IndexedDB encrypted schema & atomic repos
 │   │   ├── sync/             # Priority sync, gzip compression, backoff & network monitor
-│   │   ├── risk/             # React hooks for real-time offline risk evaluation
+│   │   ├── risk/             # Real-time offline risk evaluation hooks
 │   │   ├── referral/         # Deterministic referral facility generator
-│   │   ├── components/       # Lightweight 2D anatomical picker, sync banners & badges
+│   │   ├── components/       # 2D anatomical picker, PWA install prompt, mobile bottom navigation
 │   │   └── pages/
-│   │       ├── worker/       # Solid Green theme field worker triage, vitals, scanner
-│   │       ├── patient/      # Simple Blue theme patient health card, diary, savings
+│   │       ├── WelcomePage.tsx
+│   │       ├── worker/       # Field worker triage queue, vitals entry, QR scanner, zero-signal
+│   │       ├── patient/      # Patient health card, daily medicine diary, generic savings, SOS
 │   │       └── AboutPage.tsx
 │   ├── package.json
 │   ├── vite.config.ts        # Vite + VitePWA (Workbox offline service worker)
 │   └── tsconfig.json
-├── Admin/                    # Doctor & District Super Admin Web Dashboard
-│   ├── public/               # Admin favicon & assets
-│   ├── src/
-│   │   ├── api/              # Axios API client and endpoint definitions
-│   │   ├── auth/             # Doctor authentication and auth store
-│   │   ├── components/       # AI Loader orb, risk badges, factor bars, headers
-│   │   └── pages/            # GIS Leaflet health map, outbreaks, trends, referrals, generic review
-│   ├── package.json
-│   ├── vite.config.ts
-│   └── tsconfig.json
-└── backend/                  # FastAPI Backend (schemas, routers, services, config)
-    ├── README.md
-    ├── requirements.txt
-    ├── .env.example
-    └── app/
+└── Admin/                    # Doctor & District Super Admin Web Dashboard
+    ├── public/               # Admin favicon & assets
+    ├── src/
+    │   ├── api/              # Axios API client and endpoint definitions
+    │   ├── auth/             # Doctor authentication and auth store
+    │   ├── components/       # AI Loader orb, risk badges, factor bars
+    │   └── pages/            # GIS Leaflet health map, outbreaks, trends, referrals, generic review
+    ├── package.json
+    ├── vite.config.ts
+    └── tsconfig.json
 ```
 
 ---
 
-## 🚀 Quick Start Guide & Setup Commands
+## 🚀 Setup & Execution Guide
 
-### 1. Install All Dependencies
+### 1. Install Dependencies
 
-Install dependencies across both `App/` and `Admin/` directly from root:
+Install all dependencies across both `App/` and `Admin/` with a single command from the root:
 
 ```bash
-# Using root monorepo script:
 npm run install:all
-
-# Or manually in each directory:
-cd App && npm install
-cd ../Admin && npm install
 ```
 
 ---
 
-### 2. Run the Applications
-
-#### 🟢 Run Health Worker & Patient PWA (`App/`)
-Runs on `http://localhost:3000` with offline PWA service worker and IndexedDB encryption:
+### 2. Run the PWA (`App/`)
+Runs on `http://localhost:3000` with offline service worker, Web Crypto encryption, and mobile-first responsive layout:
 
 ```bash
-# From root directory:
 npm run app
-
-# Or from App directory:
-cd App
-npm run dev
 ```
 
-- **Health Worker Portal (Solid Green Theme)**: `http://localhost:3000/worker`
-  - Dashboard: `/worker`
-  - Register New Patient: `/worker/new`
-  - Record Vitals & 2D Body Symptoms: `/worker/vitals`
-  - QR Health Card Scanner: `/worker/scan`
-  - Zero-Signal Animated QR Transfer: `/worker/zero-signal`
-  - Offline Village Directory: `/worker/directory`
-  - Sync Center: `/worker/sync`
-- **Patient Portal (Simple Blue Theme)**: `http://localhost:3000/patient`
-  - Health Card & QR: `/patient`
-  - Daily Medicine Diary: `/patient/diary`
-  - Jan Aushadhi Savings Receipt: `/patient/savings`
-  - Zero-Signal Export: `/patient/zero-signal`
-  - Consent Manager: `/patient/consent`
-  - Emergency SOS: `/patient/sos`
+#### Available URLs in `App/`:
+- **Portal Selection / Landing**: `http://localhost:3000/`
+- **Health Worker Authentication**:
+  - Worker Login (PIN-based vault unlock): `http://localhost:3000/worker/login`
+  - Worker Registration: `http://localhost:3000/worker/register`
+- **Health Worker Portal (Field Worker Interface)**:
+  - Visit Queue & Triage: `http://localhost:3000/worker`
+  - Record Vitals & 2D Body Symptoms: `http://localhost:3000/worker/vitals`
+  - Scan QR Health Card: `http://localhost:3000/worker/scan`
+  - Register New Household Patient: `http://localhost:3000/worker/new`
+  - Zero-Signal Handoff & Chunk Assembler: `http://localhost:3000/worker/zero-signal`
+  - Offline Emergency Directory: `http://localhost:3000/worker/directory`
+  - PIN Security Lock: `http://localhost:3000/worker/pin`
+  - Sync Status & Outbox Center: `http://localhost:3000/worker/sync`
+- **Patient Authentication**:
+  - Patient Login (Mobile / QR): `http://localhost:3000/patient/login`
+  - Patient Health Card Registration: `http://localhost:3000/patient/register`
+- **Patient Portal (Digital Health Card Interface)**:
+  - My QR Health Card: `http://localhost:3000/patient`
+  - Daily Medicine Tracker Diary: `http://localhost:3000/patient/diary`
+  - Jan Aushadhi Generic Savings Receipt: `http://localhost:3000/patient/savings`
+  - Zero-Signal Animated QR Transfer to ASHA: `http://localhost:3000/patient/zero-signal`
+  - Data Sharing Consent Manager: `http://localhost:3000/patient/consent`
+  - Emergency SOS (108 Ambulance / ASHA): `http://localhost:3000/patient/sos`
 - **About Healorithm**: `http://localhost:3000/about`
 
 ---
 
-#### 🔵 Run Doctor & District Admin Dashboard (`Admin/`)
+### 3. Run Doctor & District Admin Dashboard (`Admin/`)
 Runs on `http://localhost:3001`:
 
 ```bash
-# From root directory:
 npm run admin
-
-# Or from Admin directory:
-cd Admin
-npm run dev
 ```
 
 - **Doctor Dashboard**: `http://localhost:3001/`
@@ -130,12 +118,10 @@ npm run dev
 
 ---
 
-### 3. Production Build & Typecheck Verification
-
-Run full TypeScript compilation and Vite bundling:
+### 4. Build Verification
 
 ```bash
-# Build App PWA
+# Build App PWA (Generates production Service Worker & Precache)
 npm run app:build
 
 # Build Admin Dashboard
@@ -144,9 +130,9 @@ npm run admin:build
 
 ---
 
-## 🔒 Security & Offline Principles
+## 📱 PWA Features & Responsive Design
 
-1. **Deterministic Clinical Risk First**: Immediate deterministic clinical safety rules (e.g. BP $\ge 180/120$, $\text{SpO}_2 < 90\%$, chest pain + breathlessness) immediately trigger emergency flags on-device without model latency.
-2. **Local At-Rest Encryption**: All PWA records in Dexie IndexedDB are encrypted with AES-GCM 256-bit using PBKDF2 derived keys from the worker's PIN.
-3. **Zero-Signal Animated QR Transfer**: Patient diaries and referral snapshots can be transferred device-to-device with multi-frame base64 encoded QR bursts without internet or cellular network connectivity.
-4. **Jan Aushadhi Generic Substitution**: Automatic mapping of prescribed branded medicines to equivalent generic formulations under the Pradhan Mantri Bhartiya Janaushadhi Pariyojana (PMBJP) with savings up to 85%.
+- **Mobile First**: Both Worker and Patient portals feature clean, thumb-friendly bottom navigation bars on mobile devices and horizontal tabs on desktop screens.
+- **Installable PWA**: Automatic installation banner prompts users to install the application locally for instant offline launches.
+- **Zero-Signal Operation**: Works completely without internet connection; data is stored securely in IndexedDB with AES-GCM 256-bit encryption.
+- **Trilingual Audio Guide**: Built-in voice assistance in English, Hindi, and Marathi for low-literacy field and rural patient support.
