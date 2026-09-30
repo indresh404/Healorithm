@@ -71,8 +71,8 @@ export default function PatientDashboard() {
 
     QRCode.toDataURL(cardPayload, {
       errorCorrectionLevel: 'M',
-      margin: 1,
-      width: 220,
+      margin: 2,
+      width: 380,
       color: {
         dark: '#0f172a',
         light: '#ffffff'
@@ -152,18 +152,18 @@ export default function PatientDashboard() {
             </div>
           </div>
 
-          {/* Compact Scannable Health QR Code */}
-          <div className="bg-slate-900 p-3 sm:p-3.5 rounded-2xl text-center shadow-md shrink-0 border border-slate-800">
-            <div className="bg-white p-2 rounded-xl inline-block">
+          {/* Scannable Health QR Code */}
+          <div className="bg-slate-900 p-3 sm:p-4 rounded-2xl text-center shadow-md shrink-0 border border-slate-800">
+            <div className="bg-white p-2.5 rounded-xl inline-block shadow-inner">
               {profileQrUrl ? (
                 <img 
                   src={profileQrUrl} 
                   alt="Patient Health ID QR" 
-                  className="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-lg"
+                  className="w-36 h-36 sm:w-44 sm:h-44 object-contain rounded-lg"
                 />
               ) : (
-                <div className="w-24 h-24 sm:w-28 sm:h-28 bg-white flex items-center justify-center">
-                  <QrCode className="w-20 h-20 text-slate-950" />
+                <div className="w-36 h-36 sm:w-44 sm:h-44 bg-white flex items-center justify-center">
+                  <QrCode className="w-28 h-28 text-slate-950" />
                 </div>
               )}
             </div>
