@@ -28,6 +28,8 @@ import WorkerPatientProfile from './pages/worker/WorkerPatientProfile';
 import PatientLayout from './pages/patient/PatientLayout';
 import PatientDashboard from './pages/patient/PatientDashboard';
 import PatientAdherenceDiary from './pages/patient/PatientAdherenceDiary';
+import PatientDailyCheckin from './pages/patient/PatientDailyCheckin';
+import PatientLockboxPage from './pages/patient/PatientLockboxPage';
 import PatientJanAushadhiReport from './pages/patient/PatientJanAushadhiReport';
 import PatientZeroSignalExport from './pages/patient/PatientZeroSignalExport';
 import PatientConsentManager from './pages/patient/PatientConsentManager';
@@ -82,6 +84,8 @@ export default function AppPWA() {
       >
         <Route index element={<PatientDashboard />} />
         <Route path="diary" element={<PatientAdherenceDiary />} />
+        <Route path="checkin" element={<PatientDailyCheckin />} />
+        <Route path="lockbox" element={<PatientLockboxPage />} />
         <Route path="savings" element={<PatientJanAushadhiReport />} />
         <Route path="zero-signal" element={<PatientZeroSignalExport />} />
         <Route path="consent" element={<PatientConsentManager />} />

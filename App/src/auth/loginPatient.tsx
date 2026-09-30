@@ -8,15 +8,14 @@ import {
   ArrowRight, 
   ShieldCheck, 
   ArrowLeft,
-  Sparkles,
-  Smartphone
+  KeyRound
 } from 'lucide-react';
 import { authStore } from './authStore';
 
 export default function LoginPatient() {
   const navigate = useNavigate();
-  const [mobile, setMobile] = useState('9823411021');
-  const [pin, setPin] = useState('1234');
+  const [mobile, setMobile] = useState('');
+  const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -26,23 +25,15 @@ export default function LoginPatient() {
     setError('');
 
     try {
-      const name = mobile.includes('21') ? 'Ramesh Kumar' : 'Sunita Devi';
-      const patientId = mobile.includes('21') ? 'u-101' : 'u-102';
-      await authStore.loginPatient(mobile, pin || '1234', name, patientId);
+      const patientId = mobile.endsWith('23') ? 'u-102' : 'u-101';
+      const name = mobile.endsWith('23') ? 'Sunita Devi' : 'Ramesh Kumar';
+      await authStore.loginPatient(mobile, pin, name, patientId);
       navigate('/patient');
     } catch (err) {
-      setError('Failed to authenticate patient card.');
+      setError('Invalid phone number or passcode.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickDemo = async (id: string, name: string, phoneNum: string) => {
-    setMobile(phoneNum);
-    setPin('1234');
-    setIsLoading(true);
-    await authStore.loginPatient(phoneNum, '1234', name, id);
-    navigate('/patient');
   };
 
   return (
@@ -66,7 +57,7 @@ export default function LoginPatient() {
             Patient Health Card Login
           </h2>
           <p className="text-xs text-slate-400">
-            Access your encrypted digital QR card, daily prescriptions and generic savings
+            Enter your registered mobile number and 4-digit passcode to access your offline health records
           </p>
         </div>
 
@@ -88,8 +79,8 @@ export default function LoginPatient() {
                   type="tel"
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
-                  placeholder="e.g. 9823411021"
-                  className="w-full pl-3.5 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-sm font-semibold text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  placeholder="Enter 10-digit mobile number"
+                  className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-sm font-semibold text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -106,7 +97,7 @@ export default function LoginPatient() {
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
                   placeholder="••••"
-                  className="w-full pl-3.5 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-sm font-mono tracking-widest text-center text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-sm font-mono tracking-widest text-center text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -115,40 +106,14 @@ export default function LoginPatient() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-600/25 transition-all disabled:opacity-50"
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-600/25 transition-all disabled:opacity-50 cursor-pointer"
             >
               <QrCode className="w-4 h-4" />
-              <span>{isLoading ? 'Accessing Card...' : 'View Health Card'}</span>
+              <span>{isLoading ? 'Authenticating...' : 'Open Health Card'}</span>
             </button>
           </form>
 
-          {/* Quick Demo Access Buttons */}
-          <div className="pt-4 border-t border-slate-700/60 space-y-2">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-              Quick Demo Patient Profiles:
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('u-101', 'Ramesh Kumar', '9823411021')}
-                className="p-2.5 bg-slate-900/80 hover:bg-slate-900 text-slate-200 border border-slate-700 hover:border-blue-500/50 rounded-xl text-xs font-bold text-left transition-colors"
-              >
-                <div className="text-white">Ramesh Kumar</div>
-                <div className="text-[10px] text-slate-400 font-normal">Adoni Village</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('u-102', 'Sunita Devi', '9823411023')}
-                className="p-2.5 bg-slate-900/80 hover:bg-slate-900 text-slate-200 border border-slate-700 hover:border-blue-500/50 rounded-xl text-xs font-bold text-left transition-colors"
-              >
-                <div className="text-white">Sunita Devi</div>
-                <div className="text-[10px] text-slate-400 font-normal">Alur Village</div>
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between text-xs text-slate-400 pt-2">
+          <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-700/60">
             <span>New patient in village?</span>
             <Link to="/patient/register" className="font-bold text-blue-400 hover:underline">
               Register Health Card
@@ -159,7 +124,7 @@ export default function LoginPatient() {
         {/* Security Notice */}
         <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
           <ShieldCheck className="w-4 h-4 text-blue-500" />
-          <span>Patient data stored locally on your device with DPDP consent safeguards</span>
+          <span>Patient data stored locally on your device with authenticated encryption</span>
         </div>
       </div>
     </div>

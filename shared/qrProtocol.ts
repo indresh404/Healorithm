@@ -1,25 +1,38 @@
 // shared/qrProtocol.ts
+import { User, MedicalRecord, Prescription } from './types';
 
-export interface DiaryPayload {
-  userId: string;
-  userName: string;
-  timestamp: string;
-  entries: Array<{
-    date: string;
-    morning_taken: boolean;
-    afternoon_taken: boolean;
-    night_taken: boolean;
-    symptoms: string[];
-    sos_triggered: boolean;
-  }>;
+export interface PatientExportPackage {
+  protocolVersion: string;
+  patientId: string;
+  fullName: string;
+  age: number;
+  gender: string;
+  village: string;
+  bloodGroup: string;
+  phoneNumber?: string;
   vitals?: {
     systolic_bp?: number;
     diastolic_bp?: number;
     spo2?: number;
     heart_rate?: number;
     blood_glucose?: number;
+    temperature?: number;
   };
-  consentGranted: boolean;
+  symptoms: string[];
+  prescriptions: Array<{
+    medicine_name: string;
+    generic_name: string;
+    dosage: string;
+    timing: string;
+  }>;
+  adherenceLogs: Array<{
+    date: string;
+    morning_taken: boolean;
+    afternoon_taken: boolean;
+    night_taken: boolean;
+  }>;
+  consentTimestamp: string;
+  digitalSignature: string;
 }
 
 export interface QRChunkPacket {
@@ -30,7 +43,7 @@ export interface QRChunkPacket {
   payload: string;
 }
 
-function calculateChecksum(str: string): string {
+export function calculateChecksum(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
@@ -40,8 +53,21 @@ function calculateChecksum(str: string): string {
   return Math.abs(hash).toString(36);
 }
 
-export function encodeDiaryToQRSequence(diary: DiaryPayload, chunkSize: number = 180): QRChunkPacket[] {
-  const jsonStr = JSON.stringify(diary);
+/**
+ * Encode patient package into a single JSON string for static QR codes
+ */
+export function encodeSingleQR(patientPackage: PatientExportPackage): string {
+  return JSON.stringify({
+    type: 'HEALORITHM_HEALTH_CARD',
+    data: patientPackage
+  });
+}
+
+/**
+ * Encode patient package into multi-frame animated QR sequence
+ */
+export function encodeToQRSequence(patientPackage: PatientExportPackage, chunkSize: number = 180): QRChunkPacket[] {
+  const jsonStr = JSON.stringify(patientPackage);
   const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
   const totalLength = encoded.length;
   const totalChunks = Math.ceil(totalLength / chunkSize) || 1;
@@ -53,7 +79,7 @@ export function encodeDiaryToQRSequence(diary: DiaryPayload, chunkSize: number =
     packets.push({
       seq: i + 1,
       total: totalChunks,
-      uid: diary.userId,
+      uid: patientPackage.patientId,
       chk: calculateChecksum(slice),
       payload: slice
     });
@@ -62,6 +88,9 @@ export function encodeDiaryToQRSequence(diary: DiaryPayload, chunkSize: number =
   return packets;
 }
 
+/**
+ * QR Sequence Assembler for multi-frame continuous scanning
+ */
 export class QRSequenceAssembler {
   private chunksMap: Map<number, string> = new Map();
   private expectedTotal: number = 0;
@@ -87,7 +116,8 @@ export class QRSequenceAssembler {
       };
     }
 
-    if (this.expectedTotal === 0) {
+    if (this.expectedTotal === 0 || this.userId !== packet.uid) {
+      this.chunksMap.clear();
       this.expectedTotal = packet.total;
       this.userId = packet.uid;
     }
@@ -105,7 +135,7 @@ export class QRSequenceAssembler {
     };
   }
 
-  public assemble(): DiaryPayload | null {
+  public assemble(): PatientExportPackage | null {
     if (this.chunksMap.size < this.expectedTotal) {
       return null;
     }
@@ -119,7 +149,7 @@ export class QRSequenceAssembler {
 
     try {
       const jsonStr = decodeURIComponent(escape(atob(fullEncoded)));
-      return JSON.parse(jsonStr) as DiaryPayload;
+      return JSON.parse(jsonStr) as PatientExportPackage;
     } catch (e) {
       console.error('Failed to decode assembled QR payload:', e);
       return null;
@@ -131,4 +161,64 @@ export class QRSequenceAssembler {
     this.expectedTotal = 0;
     this.userId = '';
   }
+}
+
+/**
+ * Parse any scanned QR code content (single JSON, raw string, or chunk packet)
+ */
+export function parseScannedQRData(rawContent: string): {
+  isSingleCard: boolean;
+  isChunkPacket: boolean;
+  packet?: QRChunkPacket;
+  patientPackage?: PatientExportPackage;
+  patientId?: string;
+} {
+  try {
+    const parsed = JSON.parse(rawContent);
+
+    // 1. Single Health Card JSON
+    if (parsed.type === 'HEALORITHM_HEALTH_CARD' && parsed.data) {
+      return {
+        isSingleCard: true,
+        isChunkPacket: false,
+        patientPackage: parsed.data,
+        patientId: parsed.data.patientId
+      };
+    }
+
+    // 2. Direct Patient Package
+    if (parsed.patientId && parsed.fullName) {
+      return {
+        isSingleCard: true,
+        isChunkPacket: false,
+        patientPackage: parsed as PatientExportPackage,
+        patientId: parsed.patientId
+      };
+    }
+
+    // 3. Chunk Packet Object
+    if (parsed.seq !== undefined && parsed.total !== undefined && parsed.payload) {
+      return {
+        isSingleCard: false,
+        isChunkPacket: true,
+        packet: parsed as QRChunkPacket,
+        patientId: parsed.uid
+      };
+    }
+  } catch (e) {
+    // If raw content is a plain ID like 'u-101' or 'HLM-482731'
+    const trimmed = rawContent.trim();
+    if (trimmed.startsWith('u-') || trimmed.startsWith('HLM-')) {
+      return {
+        isSingleCard: false,
+        isChunkPacket: false,
+        patientId: trimmed
+      };
+    }
+  }
+
+  return {
+    isSingleCard: false,
+    isChunkPacket: false
+  };
 }

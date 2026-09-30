@@ -7,23 +7,21 @@ import {
   KeyRound, 
   ArrowRight, 
   ShieldCheck, 
-  ArrowLeft,
-  Sparkles,
-  Smartphone
+  ArrowLeft
 } from 'lucide-react';
 import { authStore } from './authStore';
 
 export default function LoginWorker() {
   const navigate = useNavigate();
-  const [workerId, setWorkerId] = useState('w1');
-  const [pin, setPin] = useState('1234');
+  const [workerId, setWorkerId] = useState('');
+  const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pin || pin.length < 4) {
-      setError('Please enter a valid 4-digit security PIN.');
+      setError('Please enter your 4-digit security PIN.');
       return;
     }
 
@@ -31,23 +29,15 @@ export default function LoginWorker() {
     setError('');
 
     try {
-      const name = workerId === 'w1' ? 'Anitha K.' : workerId === 'w2' ? 'Lakshmi P.' : 'Field Worker';
-      const village = workerId === 'w1' ? 'Alur' : workerId === 'w2' ? 'Adoni' : 'Rural Cluster';
+      const name = workerId.includes('2') ? 'Lakshmi P.' : 'Anitha K.';
+      const village = workerId.includes('2') ? 'Adoni' : 'Alur';
       await authStore.loginWorker(workerId, pin, name, village);
       navigate('/worker');
     } catch (err) {
-      setError('Failed to unlock encrypted vault. Please verify your PIN.');
+      setError('Failed to unlock encrypted vault. Please verify your Worker ID and PIN.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickDemo = async (id: string, name: string, village: string) => {
-    setWorkerId(id);
-    setPin('1234');
-    setIsLoading(true);
-    await authStore.loginWorker(id, '1234', name, village);
-    navigate('/worker');
   };
 
   return (
@@ -94,7 +84,7 @@ export default function LoginWorker() {
                   value={workerId}
                   onChange={(e) => setWorkerId(e.target.value)}
                   placeholder="e.g. w1 or 9876543210"
-                  className="w-full pl-3.5 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-sm font-semibold text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-sm font-semibold text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                   required
                 />
               </div>
@@ -111,7 +101,7 @@ export default function LoginWorker() {
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
                   placeholder="••••"
-                  className="w-full pl-3.5 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-sm font-mono tracking-widest text-center text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-sm font-mono tracking-widest text-center text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                   required
                 />
               </div>
@@ -120,40 +110,14 @@ export default function LoginWorker() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 transition-all disabled:opacity-50"
+              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 transition-all disabled:opacity-50 cursor-pointer"
             >
               <KeyRound className="w-4 h-4" />
               <span>{isLoading ? 'Unlocking Vault...' : 'Unlock & Sign In'}</span>
             </button>
           </form>
 
-          {/* Quick Demo Access Buttons */}
-          <div className="pt-4 border-t border-slate-700/60 space-y-2">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-              Quick Demo Field Accounts:
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('w1', 'Anitha K.', 'Alur')}
-                className="p-2.5 bg-slate-900/80 hover:bg-slate-900 text-slate-200 border border-slate-700 hover:border-emerald-500/50 rounded-xl text-xs font-bold text-left transition-colors"
-              >
-                <div className="text-white">Anitha K.</div>
-                <div className="text-[10px] text-slate-400 font-normal">Alur Village</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('w2', 'Lakshmi P.', 'Adoni')}
-                className="p-2.5 bg-slate-900/80 hover:bg-slate-900 text-slate-200 border border-slate-700 hover:border-emerald-500/50 rounded-xl text-xs font-bold text-left transition-colors"
-              >
-                <div className="text-white">Lakshmi P.</div>
-                <div className="text-[10px] text-slate-400 font-normal">Adoni Village</div>
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between text-xs text-slate-400 pt-2">
+          <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-700/60">
             <span>New health worker?</span>
             <Link to="/worker/register" className="font-bold text-emerald-400 hover:underline">
               Register Worker ID
@@ -164,7 +128,7 @@ export default function LoginWorker() {
         {/* Encryption badge */}
         <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
           <ShieldCheck className="w-4 h-4 text-emerald-500" />
-          <span>PIN derives PBKDF2 + AES-GCM 256-bit encryption key on-device</span>
+          <span>Local database encrypted with AES-256-GCM on-device</span>
         </div>
       </div>
     </div>
