@@ -38,9 +38,14 @@ import PatientSOS from './pages/patient/PatientSOS';
 // About Page
 import AboutPage from './pages/AboutPage';
 
+// PWA Update Prompt
+import PwaUpdatePrompt from './components/common/PwaUpdatePrompt';
+
 export default function AppPWA() {
   return (
-    <Routes>
+    <>
+      <PwaUpdatePrompt />
+      <Routes>
       {/* Landing Portal Selector */}
       <Route path="/" element={<WelcomePage />} />
       <Route path="/login" element={<WelcomePage />} />
@@ -98,5 +103,6 @@ export default function AppPWA() {
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }
