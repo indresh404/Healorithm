@@ -1,98 +1,41 @@
-// src/pages/patient/PatientLayout.tsx
-import React, { useState } from 'react';
-import { Outlet, NavLink, Link } from 'react-router-dom';
-import Header from '../../components/common/Header';
+// App/src/pages/patient/PatientLayout.tsx
+import React from 'react';
+import { Outlet, NavLink } from 'react-router-dom';
+import PatientHeader from '../../components/common/PatientHeader';
+import PwaInstallPrompt from '../../components/common/PwaInstallPrompt';
 import { 
-  User, 
   QrCode, 
   Calendar, 
   Pill, 
   Radio, 
   ShieldCheck, 
-  PhoneCall, 
-  Volume2,
-  AlertCircle
+  PhoneCall 
 } from 'lucide-react';
-import { store } from '../../lib/storage';
-import { playVoicePrompt, TRANSLATIONS } from '@shared/translations';
 
 export default function PatientLayout() {
-  const [snapshot] = useState(store.getSnapshot());
-  const tLang = snapshot.selectedLanguage;
-  const t = TRANSLATIONS[tLang];
-
-  const activePatient = snapshot.users.find(u => u.id === snapshot.activePatientId) || snapshot.users[0];
-
-  const handleAudioHelp = () => {
-    const text = tLang === 'hi'
-      ? `नमस्ते ${activePatient.name}, यह आपका स्वास्थ्य कार्ड है। यहाँ आप अपनी आज की दवाइयाँ देख सकते हैं और बचत रिपोर्ट देख सकते हैं।`
-      : tLang === 'mr'
-      ? `नमस्कार ${activePatient.name}, हे आपले आरोग्य कार्ड आहे. येथे आपण आपली औषधे आणि बचत पाहू शकता.`
-      : `Hello ${activePatient.name}, this is your digital QR Health Card. Check your medicine doses and Jan Aushadhi savings here.`;
-    playVoicePrompt(text, tLang);
-  };
-
   const navItems = [
-    { to: '/patient', label: 'My Health Card', icon: QrCode, end: true },
-    { to: '/patient/diary', label: 'Medicine Diary', icon: Calendar },
-    { to: '/patient/savings', label: 'Jan Aushadhi Savings', icon: Pill },
+    { to: '/patient', label: 'Health Card', icon: QrCode, end: true },
+    { to: '/patient/diary', label: 'Medicines', icon: Calendar },
+    { to: '/patient/savings', label: 'Generic Savings', icon: Pill },
     { to: '/patient/zero-signal', label: 'Transfer to ASHA', icon: Radio },
-    { to: '/patient/consent', label: 'Consent Manager', icon: ShieldCheck },
-    { to: '/patient/sos', label: 'Emergency SOS', icon: PhoneCall },
+    { to: '/patient/consent', label: 'Consent', icon: ShieldCheck },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
-      <Header />
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans pb-20 sm:pb-8">
+      {/* Top Header */}
+      <PatientHeader />
 
-      {/* Patient Solid Blue Top Banner */}
-      <div className="bg-blue-600 text-white px-4 py-3 shadow-md">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-700 flex items-center justify-center font-bold text-white shadow-xs">
-              <User className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold tracking-tight">{activePatient.name}</h1>
-                <span className="bg-blue-800 px-2 py-0.5 rounded-full text-[10px] font-bold text-blue-100">
-                  {activePatient.village || 'Adoni'}
-                </span>
-              </div>
-              <p className="text-xs text-blue-100 font-medium">Digital QR Health Card • Offline Protected</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleAudioHelp}
-              className="px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-blue-500 shadow-xs"
-              title="Voice guidance in selected language"
-            >
-              <Volume2 className="w-4 h-4 text-blue-200 animate-pulse" />
-              <span>{t.listen_audio || 'Listen in Audio'}</span>
-            </button>
-
-            <Link
-              to="/patient/sos"
-              className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-xs font-extrabold flex items-center gap-1.5 transition-colors shadow-xs"
-            >
-              <span>SOS</span>
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Big Touch Navigation Tabs (Solid Blue Theme, NO Gradients) */}
-      <div className="bg-white border-b border-slate-200 sticky top-[95px] z-[90]">
-        <div className="max-w-7xl mx-auto px-4">
+      {/* Desktop Horizontal Navigation Bar */}
+      <div className="hidden sm:block bg-white border-b border-slate-200 sticky top-[73px] z-[80] shadow-xs">
+        <div className="max-w-5xl mx-auto px-4">
           <nav className="flex items-center gap-2 overflow-x-auto py-2.5 scrollbar-none">
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.end}
-                className={({ isActive }) => `px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 ${
+                className={({ isActive }) => `px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 ${
                   isActive
                     ? 'bg-blue-600 text-white shadow-xs'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -106,10 +49,32 @@ export default function PatientLayout() {
         </div>
       </div>
 
-      {/* Main Patient Content Area */}
+      {/* Main Content Area */}
       <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 lg:p-8">
         <Outlet />
       </main>
+
+      {/* Mobile Bottom Navigation Bar (Thumb Friendly) */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white border-t border-slate-200 px-2 py-1.5 flex items-center justify-around shadow-lg">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            className={({ isActive }) => `flex flex-col items-center justify-center p-1 rounded-xl transition-all ${
+              isActive
+                ? 'text-blue-600 font-extrabold'
+                : 'text-slate-500 font-medium hover:text-slate-900'
+            }`}
+          >
+            <item.icon className="w-5 h-5" />
+            <span className="text-[10px] mt-0.5">{item.label}</span>
+          </NavLink>
+        ))}
+      </div>
+
+      {/* PWA Install Prompt */}
+      <PwaInstallPrompt />
     </div>
   );
 }

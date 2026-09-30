@@ -1,12 +1,12 @@
 // App/src/sync/compress.ts
-import pako from 'pako';
+import { gzip, ungzip } from 'pako';
 
 /**
  * Compresses JSON object or string using pako gzip into base64 string.
  */
 export function compressGzipPayload(data: any): string {
   const jsonStr = typeof data === 'string' ? data : JSON.stringify(data);
-  const compressed = pako.gzip(jsonStr);
+  const compressed = gzip(jsonStr);
   let binary = '';
   const len = compressed.byteLength;
   for (let i = 0; i < len; i++) {
@@ -25,7 +25,7 @@ export function decompressGzipPayload<T = any>(base64Data: string): T {
   for (let i = 0; i < len; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  const decompressedBytes = pako.ungzip(bytes);
+  const decompressedBytes = ungzip(bytes);
   const decompressed = new TextDecoder().decode(decompressedBytes);
   try {
     return JSON.parse(decompressed) as T;
