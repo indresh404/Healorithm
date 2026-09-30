@@ -33,7 +33,7 @@ export default function WorkerPINLock() {
         navigate('/worker');
       }, 600);
     } else {
-      setErrorMsg('Incorrect PIN. Default demo PIN is 1234.');
+      setErrorMsg('Incorrect PIN. Default device passcode is 1234.');
       setPin('');
     }
   };
@@ -78,7 +78,7 @@ export default function WorkerPINLock() {
                 else if (btn === '⌫') { handleBackspace(); }
                 else { handleDigit(btn); }
               }}
-              className="h-14 rounded-2xl bg-slate-50 hover:bg-emerald-50 active:bg-emerald-100 border border-slate-200 text-slate-900 font-bold text-lg transition-all flex items-center justify-center"
+              className="h-14 rounded-2xl bg-slate-50 hover:bg-emerald-50 active:bg-emerald-100 border border-slate-200 text-slate-900 font-bold text-lg transition-all flex items-center justify-center cursor-pointer"
             >
               {btn}
             </button>
@@ -86,7 +86,7 @@ export default function WorkerPINLock() {
         </div>
 
         <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-slate-500 text-[11px]">
-          Demo PIN: <strong>1234</strong> (or any 4 digits to unlock)
+          Device PIN: <strong>1234</strong> (or any 4 digits to unlock local vault)
         </div>
       </div>
     </div>

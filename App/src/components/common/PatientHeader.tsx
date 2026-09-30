@@ -67,7 +67,7 @@ export default function PatientHeader({ onLockVault }: PatientHeaderProps) {
     if (onLockVault) onLockVault();
   };
 
-  const handleSwitchDemoPatient = (id: string, name: string, phone: string) => {
+  const handleSwitchActivePatient = (id: string, name: string, phone: string) => {
     authStore.loginPatient(phone, '1234', name, id);
     store.setActivePatient(id);
     setDrawerOpen(false);

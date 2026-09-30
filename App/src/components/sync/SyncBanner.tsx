@@ -79,7 +79,7 @@ export default function SyncBanner() {
             mode === 'simulated_offline' ? 'bg-white text-slate-900 shadow-xs' : 'bg-black/20 hover:bg-black/40'
           }`}
         >
-          Offline (Demo)
+          Field Offline
         </button>
 
         {stats.pendingCount > 0 && (

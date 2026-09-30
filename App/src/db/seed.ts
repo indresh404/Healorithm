@@ -10,11 +10,11 @@ export async function seedInitialDexieData() {
 
   const key = await deriveKeyFromPIN('1234');
 
-  const demoPatients: Patient[] = [
+  const initialPatients: Patient[] = [
     {
       id: 'u-101',
       qr_id: 'u-101',
-      name: 'Ramesh Kumar',
+      name: 'Indresh',
       age: 58,
       gender: 'Male',
       preferred_language: 'Hindi',
@@ -58,7 +58,7 @@ export async function seedInitialDexieData() {
     }
   ];
 
-  for (const p of demoPatients) {
+  for (const p of initialPatients) {
     await savePatientAtomic(p, key);
   }
 }

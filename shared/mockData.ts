@@ -30,7 +30,7 @@ export const INITIAL_WORKERS: Worker[] = [
 export const INITIAL_USERS: User[] = [
   {
     id: 'u-101',
-    name: 'Ramesh Kumar',
+    name: 'Indresh',
     age: 58,
     gender: 'Male',
     preferred_language: 'Hindi',
@@ -332,7 +332,7 @@ export const INITIAL_RECORDS: MedicalRecord[] = [
   {
     id: 'rec-1',
     user_id: 'u-101',
-    patient_name: 'Ramesh Kumar',
+    patient_name: 'Indresh',
     report_type: 'Follow-up Checkup & Vitals',
     date: '2026-09-20',
     doctor: 'Dr. Arvind Sharma',
@@ -508,7 +508,7 @@ export const INITIAL_REFERRALS: Referral[] = [
   {
     id: 'ref-2',
     user_id: 'u-101',
-    patient_name: 'Ramesh Kumar',
+    patient_name: 'Indresh',
     village: 'Adoni',
     priority: 'Urgent',
     specialty: 'Internal Medicine / Cardiology',
@@ -642,7 +642,7 @@ export const INITIAL_CONFLICTS: ConflictRecord[] = [
   {
     id: 'cnf-1',
     user_id: 'u-101',
-    patient_name: 'Ramesh Kumar',
+    patient_name: 'Indresh',
     field_name: 'Provisional Diagnosis',
     local_value: 'Stage 2 Hypertension with Angina Pectoris',
     remote_value: 'Essential Hypertension with Chronic Gastritis',

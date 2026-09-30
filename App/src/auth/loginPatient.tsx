@@ -26,7 +26,7 @@ export default function LoginPatient() {
 
     try {
       const patientId = mobile.endsWith('23') ? 'u-102' : 'u-101';
-      const name = mobile.endsWith('23') ? 'Sunita Devi' : 'Ramesh Kumar';
+      const name = mobile.endsWith('23') ? 'Sunita Devi' : 'Indresh';
       await authStore.loginPatient(mobile, pin, name, patientId);
       navigate('/patient');
     } catch (err) {

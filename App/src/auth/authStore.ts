@@ -74,7 +74,7 @@ class AuthStoreManager {
     this.notify();
   }
 
-  public async loginPatient(mobile: string, pin: string, patientName: string = 'Ramesh Kumar', patientId: string = 'u-101') {
+  public async loginPatient(mobile: string, pin: string, patientName: string = 'Indresh', patientId: string = 'u-101') {
     const key = await deriveKeyFromPIN(pin);
     this.state = {
       isAuthenticated: true,
@@ -93,7 +93,7 @@ class AuthStoreManager {
     this.state.role = role;
     if (role === 'patient') {
       this.state.userId = 'u-101';
-      this.state.userName = 'Ramesh Kumar';
+      this.state.userName = 'Indresh';
     } else {
       this.state.userId = 'w2';
       this.state.userName = 'Lakshmi P.';

@@ -31,7 +31,7 @@ export default function WorkerZeroSignalHandoff() {
   const samplePackage: PatientExportPackage = {
     protocolVersion: '2.0.0',
     patientId: 'HLM-482731',
-    fullName: 'Ramesh Kumar',
+    fullName: 'Indresh',
     age: 45,
     gender: 'Male',
     village: 'Adoni Village',
